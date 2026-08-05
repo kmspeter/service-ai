@@ -114,11 +114,31 @@ Backend가 필요한 경계는 실제 Backend 계약을 침범하지 않는 개�
 
 ## 개발 시작 전
 
-1. `docs/IMPLEMENTATION_SCOPE.md` 추가
-2. `.env.example` 기준 개발 환경값 준비
-3. Qdrant / MinIO 실행
-4. Python 3.12 가상환경 구성
-5. 의존성 설치
-6. `docs/DEVELOPMENT_PLAN.md`의 Phase 01부터 진행
+1. `.env.example` 기준 개발 환경값 준비
+2. Python 3.12 가상환경 구성
+3. 의존성 설치
+4. `docs/DEVELOPMENT_PLAN.md`의 Phase 순서대로 진행
 
-구체적인 실행 명령은 프로젝트 초기 Skeleton 확정 후 `docs/TESTING.md`에 실제 명령으로 유지한다.
+Windows PowerShell 기준 Phase 01 실행 방법:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+```
+
+서버 확인:
+
+```powershell
+curl.exe http://localhost:8000/health
+curl.exe http://localhost:8000/ready
+```
+
+테스트와 정적 검사:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m ruff check .
+```
+
+Phase 01의 readiness는 애플리케이션 설정만 확인한다. Qdrant와 MinIO 연결 점검은 Phase 02에서 추가한다.

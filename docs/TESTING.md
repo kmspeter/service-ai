@@ -63,31 +63,35 @@ Fixture에 실제 민감 문서를 넣지 않는다.
 
 프로젝트 초기 구성에서 `pytest` 사용을 기본으로 한다.
 
-```bash
-pytest
+Windows PowerShell에서는 저장소의 Python 3.12 가상환경을 사용한다.
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
 ```
 
 Unit:
 
-```bash
-pytest tests/unit
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/unit
 ```
 
 Integration:
 
-```bash
-pytest tests/integration
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/integration
 ```
 
 특정 테스트:
 
-```bash
-pytest tests/unit/parsers
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/unit/parsers
 ```
 
-Lint/Formatter/Type Checker의 정확한 도구는 `IMPLEMENTATION_SCOPE.md`에 확정되어 있지 않다.
+Phase 01에서는 정적 검사 도구로 Ruff를 사용한다.
 
-따라서 도구를 선택하기 전 임의로 여러 도구를 중복 도입하지 말고, 프로젝트 초기 설정에서 하나의 정책을 정한 후 이 문서에 실제 명령을 기록한다.
+```powershell
+.\.venv\Scripts\python.exe -m ruff check .
+```
 
 ---
 
