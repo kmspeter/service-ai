@@ -1,0 +1,2 @@
+Parser layer sample text.
+This fixture contains only non-sensitive test data.

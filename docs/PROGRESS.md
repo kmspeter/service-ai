@@ -32,7 +32,7 @@ VERIFIED
 | 02 | Infrastructure Clients | VERIFIED | Docker Compose + 22 tests + `/ready` 검증 통과 |
 | 03 | LLM Provider Abstraction | VERIFIED | OpenAI/Ollama/Gemini Unit·Regression + Ollama/Gemini 실제 검증 통과 |
 | 04 | Embedding Provider | VERIFIED | OpenAI Embedding Unit·Regression + 실제 Qdrant Dimension 검증 통과 |
-| 05 | Parser Layer | NOT_STARTED | - |
+| 05 | Parser Layer | VERIFIED | TXT/MD/PDF fixture Unit 26 tests + 전체 Regression 통과 |
 | 06 | Token Measurement & Recursive Chunking | NOT_STARTED | - |
 | 07 | Document Ingestion Pipeline | NOT_STARTED | - |
 | 08 | Document Delete & Status | NOT_STARTED | - |
@@ -54,7 +54,7 @@ VERIFIED
 ## 현재 Phase
 
 ```text
-Phase: 04
+Phase: 05
 Status: VERIFIED
 ```
 
@@ -62,41 +62,33 @@ Status: VERIFIED
 
 ## 구현 완료
 
-- SDK 독립 `EmbeddingProvider`, `EmbeddingResult`, `EmbeddingBatchResult`, `EmbeddingUsage` Port
-- Provider 중립 `EmbeddingService`와 설정 기반 OpenAI Embedding Adapter 조립
-- 단일 문자열 및 여러 문자열 Batch Embedding
-- `EMBEDDING_API_KEY`, `EMBEDDING_MODEL`, `EMBEDDING_TIMEOUT_SECONDS` 독립 설정
-- LLM Client/Key와 Embedding Client/Key의 책임 및 lifecycle 분리
-- 기본 모델 `text-embedding-3-small`의 실제 기본 Dimension 1536 적용
-- 반환 Vector 개수, index, 유한 숫자, 모든 Vector의 1536 Dimension 검증
-- OpenAI `prompt_tokens`, `total_tokens` Usage와 `perf_counter` 기반 latency 수집
-- Authentication, Authorization, Rate Limit, Timeout, Connection, Provider 5xx, Invalid Response 오류 표준화
-- OpenAI SDK 자동 Retry 비활성화 및 Phase 04 별도 Retry 미적용
-- 빈 단일/Batch 입력을 Provider 호출 전에 명시적으로 거부
-- Qdrant Collection이 없을 때 명시적 초기화 호출로 Cosine/1536 Collection 생성
-- 기존 Qdrant Collection Dimension이 다르면 자동 삭제/재생성 없이 `QDRANT_VECTOR_DIMENSION_MISMATCH` 발생
-- Credential이 있을 때만 실제 호출하는 독립 Embedding Integration Test
-- Parsing/Chunking, Qdrant Point 저장, Retrieval과 연결하지 않음
+- 공통 `ParserInput`, `ContentUnit`, `NormalizedDocument` 내부 모델
+- 확장자 기반 Parser 선택을 한 곳에 집중한 `ParserRegistry`
+- 필수 포맷만 등록한 기본 Registry: `txt`, `md`, `pdf`
+- TXT 원문 추출, 빈 문서 허용, 긴 Text 보존, 기본 Metadata 계산
+- BOM 기반 UTF-8/UTF-16/UTF-32 및 BOM 없는 strict UTF-8 Encoding 정책
+- MD 원문 보존과 단순 ATX Heading 기반 Section/Heading Level Metadata 추출
+- PyMuPDF 기반 PDF Page별 Text 추출, 1-based Page Number 및 Page Count 유지
+- 정상 PDF의 암호화 여부 Metadata와 암호화/손상/일반 Parsing 실패 오류 구분
+- 공통 Character Count와 전체 `content` 결합 표현
+- 민감 데이터가 없는 TXT/MD/PDF/다중 Page/손상/암호화 Fixture
+- OCR, Chunking, Embedding 연결, Qdrant 저장, RAG는 구현하지 않음
 
 ---
 
 ## 검증
 
-- Phase 03 문서 상태 확인: `VERIFIED`
-- Command: Phase 03 핵심 Unit Test 재실행
-  - Result: PASS (`53 passed`)
-- Command: `.\.venv\Scripts\python.exe -m pytest tests/unit/adapters/test_openai_embedding_adapter.py tests/unit/test_embedding.py tests/unit/test_config.py -q`
-  - Result: PASS (`33 passed`)
+- Phase 04 문서/브랜치 상태 확인: `VERIFIED`, `main`과 Phase 04 완료 커밋 일치
+- Command: `.\.venv\Scripts\python.exe -m pytest tests/unit/parsers -q`
+  - Result: PASS (`26 passed`)
 - Command: `.\.venv\Scripts\python.exe -m pytest tests/unit -q`
-  - Result: PASS (`95 passed`)
+  - Result: PASS (`121 passed`)
 - Command: `.\.venv\Scripts\python.exe -m pytest -q`
-  - Result: PASS (`101 passed, 8 skipped`; 실제 Infrastructure/LLM/Embedding Test만 조건부 skip)
-- Command: `RUN_INFRASTRUCTURE_TESTS=1`, `QDRANT_URL=http://127.0.0.1:6333`로 `.\.venv\Scripts\python.exe -m pytest tests/integration/qdrant -q`
-  - Result: PASS (`4 passed`; 1536 Collection 생성 및 잘못된 4 Dimension Collection 거부/보존 확인)
-- Command: `.\.venv\Scripts\python.exe -m pytest tests/integration/embedding -q`
-  - Result: SKIP (`1 skipped`; OpenAI Embedding Credential 미설정으로 비용 방지)
+  - Result: PASS (`127 passed, 8 skipped`; 기존 실제 Infrastructure/LLM/Embedding Test만 조건부 skip)
 - Command: `.\.venv\Scripts\python.exe -m ruff check .`
   - Result: PASS
+- Command: `.\.venv\Scripts\python.exe -m pip check`
+  - Result: PASS (`No broken requirements found`)
 - Command: `git diff --check`
   - Result: PASS
 
@@ -110,38 +102,47 @@ Status: VERIFIED
 
 ## 미검증 항목
 
-- 실제 OpenAI Embedding 호출은 `EMBEDDING_API_KEY` 미제공으로 미검증이며 Mock 검증만 완료.
-- 실제 Qdrant Collection Dimension 생성/불일치 정책은 로컬 Qdrant에서 검증 완료.
-- Parsing/Chunking 연결, Qdrant Point 저장, Retrieval은 Phase 04 제외 범위로 구현하지 않음.
+- Phase 05 요구 범위 내 미검증 항목 없음.
+- 전체 Test의 조건부 skip 8개는 기존 외부 Infrastructure/LLM/Embedding 검증이며 Parser 계층과 무관함.
+- 이미지 전용 PDF의 OCR, Chunking/Embedding/Qdrant/RAG 연결은 명시적인 제외 범위임.
 
 ---
 
 ## 변경 파일
 
-- `.env.example`
+- `.gitattributes`
 - `pyproject.toml`
-- `app/core/config.py`
 - `app/core/exceptions.py`
-- `app/adapters/openai_embedding.py`
-- `app/embedding.py`
-- `app/ports/embedding.py`
-- `app/services/embedding.py`
-- `tests/unit/test_config.py`
-- `tests/unit/test_embedding.py`
-- `tests/unit/adapters/test_openai_embedding_adapter.py`
-- `tests/integration/embedding/__init__.py`
-- `tests/integration/embedding/test_embedding_integration.py`
-- `tests/integration/qdrant/test_qdrant_integration.py`
+- `app/models/__init__.py`
+- `app/models/document.py`
+- `app/parsers/__init__.py`
+- `app/parsers/base.py`
+- `app/parsers/encoding.py`
+- `app/parsers/markdown.py`
+- `app/parsers/pdf.py`
+- `app/parsers/registry.py`
+- `app/parsers/text.py`
+- `tests/fixtures/documents/sample.txt`
+- `tests/fixtures/documents/empty.txt`
+- `tests/fixtures/documents/sample.md`
+- `tests/fixtures/documents/sample.pdf`
+- `tests/fixtures/documents/multi_page.pdf`
+- `tests/fixtures/documents/corrupted.pdf`
+- `tests/fixtures/documents/encrypted.pdf`
+- `tests/unit/parsers/__init__.py`
+- `tests/unit/parsers/test_txt.py`
+- `tests/unit/parsers/test_markdown.py`
+- `tests/unit/parsers/test_pdf.py`
+- `tests/unit/parsers/test_registry.py`
 - `docs/FILE_STRUCTURE.md`
-- `docs/TESTING.md`
 - `docs/PROGRESS.md`
 
 ---
 
 ## 다음 작업
 
-- Phase 04 Embedding Provider와 Qdrant Dimension 검증 완료.
-- `Phase 05 — Parser Layer` 진행 가능.
+- Phase 05 Parser Layer 검증 완료.
+- `Phase 06 — Token Measurement & Recursive Chunking` 진행 가능.
 
 ---
 

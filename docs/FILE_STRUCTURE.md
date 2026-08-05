@@ -25,6 +25,15 @@ service-ai/
 │  │  ├─ storage.py              # ObjectStorage Protocol/DTO
 │  │  ├─ llm.py                  # LLMProvider Protocol과 공통 Request/Result/Usage
 │  │  └─ embedding.py            # EmbeddingProvider Protocol과 공통 Result/Usage
+│  ├─ models/
+│  │  └─ document.py             # ParserInput/ContentUnit/NormalizedDocument
+│  ├─ parsers/
+│  │  ├─ base.py                 # 문서 Parser Protocol
+│  │  ├─ encoding.py             # TXT/MD 공통 Unicode Encoding 정책
+│  │  ├─ text.py                 # TXT 원문 Parser
+│  │  ├─ markdown.py             # MD 원문 및 Heading Section Parser
+│  │  ├─ pdf.py                  # PyMuPDF Page Text Parser
+│  │  └─ registry.py             # 확장자별 Parser 선택의 단일 진입점
 │  ├─ services/
 │  │  ├─ llm.py                  # Provider 중립 LLM Application Service
 │  │  └─ embedding.py            # 단일/Batch Embedding과 Qdrant Dimension 정책
@@ -37,6 +46,8 @@ service-ai/
 ├─ scripts/
 │  └─ test_llm.py               # Agent/RAG와 무관한 실제 LLM 호출 CLI
 ├─ tests/
+│  ├─ fixtures/documents/        # 비민감 TXT/MD/PDF Parser Fixture
+│  ├─ unit/parsers/              # Parser/Registry/Normalized Document Unit Test
 │  ├─ unit/adapters/            # SDK 오류 변환 Unit Test
 │  ├─ integration/qdrant/       # 실제 Qdrant 및 Embedding Dimension Integration Test
 │  ├─ integration/embedding/    # 실제 Embedding Provider Integration Test
@@ -54,6 +65,12 @@ service-ai/
 ## Dependency Direction
 
 ```text
+Document File / ParserInput
+    ↓
+ParserRegistry / DocumentParser
+    ↓
+NormalizedDocument / ContentUnit
+
 FastAPI API
     ↓
 QdrantRepository / ObjectStorage / LLMProvider / EmbeddingProvider (Port)
@@ -70,4 +87,5 @@ External SDK / Qdrant / MinIO
 - 기존 Qdrant Collection의 dimension이 다르면 자동 삭제/재생성하지 않고 명시적인 오류를 반환한다.
 - LLM Service와 상위 Application 계층은 OpenAI SDK 타입을 받거나 반환하지 않는다.
 - Embedding Service와 상위 Application 계층은 OpenAI SDK 타입을 받거나 반환하지 않는다.
-- Phase 04는 Parsing, Chunking, Qdrant Point 저장, Retrieval과 연결하지 않는다.
+- Parser 선택은 `ParserRegistry`에만 두고 이후 단계에는 `NormalizedDocument`를 전달한다.
+- Phase 05는 OCR, Chunking, Embedding, Qdrant Point 저장, Retrieval과 연결하지 않는다.

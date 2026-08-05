@@ -213,6 +213,46 @@ class QdrantVectorDimensionMismatchError(ApplicationError):
         super().__init__()
 
 
+class DocumentParserError(ApplicationValidationError):
+    """Base class for document parser failures safe for the public contract."""
+
+    code = "DOCUMENT_PARSING_FAILED"
+    public_message = "The document could not be parsed."
+
+    def __init__(self, *, filename: str | None = None) -> None:
+        self.filename = filename
+        super().__init__()
+
+
+class UnsupportedDocumentTypeError(DocumentParserError):
+    code = "UNSUPPORTED_DOCUMENT_TYPE"
+    public_message = "The document type is not supported."
+
+    def __init__(self, *, file_type: str | None) -> None:
+        self.file_type = file_type
+        super().__init__()
+
+
+class TextDecodingError(DocumentParserError):
+    code = "TEXT_DECODING_FAILED"
+    public_message = "The text document encoding is not supported."
+
+
+class PdfParsingError(DocumentParserError):
+    code = "PDF_PARSING_FAILED"
+    public_message = "The PDF document could not be parsed."
+
+
+class CorruptedPdfError(PdfParsingError):
+    code = "PDF_CORRUPTED"
+    public_message = "The PDF document is corrupted."
+
+
+class EncryptedPdfError(PdfParsingError):
+    code = "PDF_ENCRYPTED"
+    public_message = "Encrypted PDF documents are not supported."
+
+
 class InternalApplicationError(ApplicationError):
     pass
 
