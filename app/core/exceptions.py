@@ -70,6 +70,67 @@ class AIProcessingError(ApplicationError):
     public_message = "The AI request could not be processed."
 
 
+class LLMError(ApplicationError):
+    """Base class for standardized LLM provider failures."""
+
+    status_code = 502
+    code = "LLM_PROVIDER_ERROR"
+    public_message = "The LLM provider request failed."
+
+    def __init__(self, provider: str) -> None:
+        self.provider = provider
+        super().__init__()
+
+
+class LLMAuthenticationError(LLMError):
+    code = "LLM_AUTHENTICATION_FAILED"
+    public_message = "The LLM provider could not be authenticated."
+
+
+class LLMAuthorizationError(LLMError):
+    status_code = 403
+    code = "LLM_AUTHORIZATION_FAILED"
+    public_message = "The LLM provider request is not authorized."
+
+
+class LLMRateLimitError(LLMError):
+    status_code = 429
+    code = "LLM_RATE_LIMITED"
+    public_message = "The LLM provider rate limit was exceeded."
+
+
+class LLMTimeoutError(LLMError):
+    status_code = 504
+    code = "LLM_TIMEOUT"
+    public_message = "The LLM provider request timed out."
+
+
+class LLMConnectionError(LLMError):
+    status_code = 503
+    code = "LLM_CONNECTION_FAILED"
+    public_message = "The LLM provider is unavailable."
+
+
+class LLMProviderServerError(LLMError):
+    code = "LLM_PROVIDER_SERVER_ERROR"
+    public_message = "The LLM provider is temporarily unavailable."
+
+
+class LLMInvalidResponseError(LLMError):
+    code = "LLM_INVALID_RESPONSE"
+    public_message = "The LLM provider returned an invalid response."
+
+
+class UnknownLLMProviderError(ApplicationError):
+    status_code = 422
+    code = "UNKNOWN_LLM_PROVIDER"
+    public_message = "The configured LLM provider is not supported."
+
+    def __init__(self, provider: str) -> None:
+        self.provider = provider
+        super().__init__()
+
+
 class InternalApplicationError(ApplicationError):
     pass
 

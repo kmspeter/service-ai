@@ -10,7 +10,10 @@ service-ai/
 │  │  └─ router.py              # API router 조립
 │  ├─ adapters/
 │  │  ├─ qdrant.py              # Qdrant SDK Adapter 및 오류 변환
-│  │  └─ minio.py               # MinIO SDK Adapter 및 오류 변환
+│  │  ├─ minio.py               # MinIO SDK Adapter 및 오류 변환
+│  │  ├─ openai.py              # OpenAI Responses API Adapter 및 Usage/오류 변환
+│  │  ├─ ollama.py              # Ollama Cloud API Adapter 및 Usage/오류 변환
+│  │  └─ gemini.py              # Google Gemini Interactions API Adapter
 │  ├─ core/
 │  │  ├─ config.py              # 환경설정과 Phase별 필수값 검증
 │  │  ├─ exceptions.py          # 외부 노출용 표준 오류 계약
@@ -18,11 +21,17 @@ service-ai/
 │  │  └─ request_context.py      # request_id middleware/context
 │  ├─ ports/
 │  │  ├─ qdrant.py              # QdrantRepository Protocol/DTO
-│  │  └─ storage.py              # ObjectStorage Protocol/DTO
+│  │  ├─ storage.py              # ObjectStorage Protocol/DTO
+│  │  └─ llm.py                  # LLMProvider Protocol과 공통 Request/Result/Usage
+│  ├─ services/
+│  │  └─ llm.py                  # Provider 중립 LLM Application Service
 │  ├─ schemas/
 │  │  └─ health.py              # Health/Readiness response schema
 │  ├─ infrastructure.py         # Adapter 조립 및 lifecycle container
+│  ├─ llm.py                    # 설정 기반 LLM Provider 조립
 │  └─ main.py                   # FastAPI application factory
+├─ scripts/
+│  └─ test_llm.py               # Agent/RAG와 무관한 실제 LLM 호출 CLI
 ├─ tests/
 │  ├─ unit/adapters/            # SDK 오류 변환 Unit Test
 │  ├─ integration/qdrant/       # 실제 Qdrant Integration Test
@@ -42,9 +51,9 @@ service-ai/
 ```text
 FastAPI API
     ↓
-QdrantRepository / ObjectStorage (Port)
+QdrantRepository / ObjectStorage / LLMProvider (Port)
     ↓
-QdrantAdapter / MinioStorageAdapter
+QdrantAdapter / MinioStorageAdapter / OpenAILLMAdapter / OllamaLLMAdapter / GeminiLLMAdapter
     ↓
 External SDK / Qdrant / MinIO
 ```
@@ -53,3 +62,5 @@ External SDK / Qdrant / MinIO
 - MinIO는 원본 문서 Object만 저장한다.
 - Qdrant는 Chunk/Vector/Retrieval Metadata만 저장하며 원본 파일 저장소로 사용하지 않는다.
 - Production Qdrant Collection의 vector dimension은 Phase 04 전에는 확정하지 않는다.
+- LLM Service와 상위 Application 계층은 OpenAI SDK 타입을 받거나 반환하지 않는다.
+- Phase 03은 Agent, Tool Calling, RAG, Prompt 조립과 연결하지 않는다.

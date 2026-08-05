@@ -216,6 +216,57 @@ doc-001
 
 실제 Provider 호출 테스트는 비용이 발생할 수 있으므로 Unit Test에서는 Mock을 사용하고 실제 Integration Test를 구분한다.
 
+Phase 03 Unit Test:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/unit/adapters/test_openai_adapter.py tests/unit/adapters/test_ollama_adapter.py tests/unit/adapters/test_gemini_adapter.py tests/unit/test_llm.py -q
+```
+
+실제 Provider Integration Test는 다음 실행 Flag와 `.env` 또는 환경변수의 Provider 설정이 모두 있을 때 호출한다.
+
+```text
+RUN_LLM_INTEGRATION_TESTS=1
+LLM_PROVIDER
+LLM_API_KEY
+LLM_MODEL
+```
+
+```powershell
+$env:RUN_LLM_INTEGRATION_TESTS="1"
+.\.venv\Scripts\python.exe -m pytest tests/integration/llm -q
+```
+
+Agent/RAG와 무관한 개발용 CLI:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.test_llm
+```
+
+실행 Flag나 실제 Credential이 없으면 Integration Test는 실패가 아니라 명시적으로 skip된다. CLI는 필수 설정 누락을
+보고한다. OpenAI Adapter는 SDK의 자동 Retry를 비활성화하며 Phase 03에서는 별도 Retry를 적용하지 않는다.
+Ollama Adapter도 HTTP Client 기본 1회 호출만 수행하고 별도 Retry를 적용하지 않는다.
+
+검증된 Ollama Cloud 설정 예:
+
+```text
+LLM_PROVIDER=ollama
+LLM_API_KEY=<ollama-api-key>
+LLM_MODEL=gpt-oss:20b
+```
+
+Ollama Cloud URL과 Bearer 인증 방식은 Adapter 내부 Provider 설정이므로 별도 환경변수가 필요하지 않다.
+
+검증된 Google Gemini 설정 예:
+
+```text
+LLM_PROVIDER=gemini
+LLM_API_KEY=<gemini-api-key>
+LLM_MODEL=gemini-3.6-flash
+```
+
+Gemini Adapter는 Google Interactions API를 사용한다. Gemini 3.6의 deprecated sampling 정책에 따라
+Temperature를 해당 모델의 요청에 전달하지 않는다.
+
 ---
 
 # 9. Embedding Test
