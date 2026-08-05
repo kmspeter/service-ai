@@ -31,11 +31,37 @@ class ExternalServiceError(ApplicationError):
     code = "EXTERNAL_SERVICE_ERROR"
     public_message = "An external service request failed."
 
+    def __init__(self, service: str) -> None:
+        self.service = service
+        super().__init__()
+
+
+class ExternalServiceConnectionError(ExternalServiceError):
+    status_code = 503
+    code = "EXTERNAL_SERVICE_CONNECTION_FAILED"
+    public_message = "An external service is unavailable."
+
+
+class ExternalServiceTimeoutError(ExternalServiceError):
+    status_code = 504
+    code = "EXTERNAL_SERVICE_TIMEOUT"
+    public_message = "An external service request timed out."
+
+
+class ExternalServiceAuthenticationError(ExternalServiceError):
+    status_code = 502
+    code = "EXTERNAL_SERVICE_AUTHENTICATION_FAILED"
+    public_message = "An external service could not be authenticated."
+
 
 class ResourceNotFoundError(ApplicationError):
     status_code = 404
     code = "RESOURCE_NOT_FOUND"
     public_message = "The requested resource was not found."
+
+    def __init__(self, resource_type: str = "resource") -> None:
+        self.resource_type = resource_type
+        super().__init__()
 
 
 class AIProcessingError(ApplicationError):

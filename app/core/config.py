@@ -40,11 +40,22 @@ class Settings(BaseSettings):
     qdrant_url: AnyHttpUrl | None = None
     qdrant_api_key: SecretStr | None = None
     qdrant_collection: str | None = None
+    qdrant_timeout_seconds: int = Field(default=5, ge=1, le=60)
 
     minio_url: AnyHttpUrl | None = None
     minio_access_key: SecretStr | None = None
     minio_secret_key: SecretStr | None = None
     minio_bucket: str | None = None
+    minio_timeout_seconds: int = Field(default=5, ge=1, le=60)
+    minio_auto_create_bucket: bool = True
+
+    infrastructure_required_settings: ClassVar[tuple[str, ...]] = (
+        "qdrant_url",
+        "minio_url",
+        "minio_access_key",
+        "minio_secret_key",
+        "minio_bucket",
+    )
 
     def validate_required_settings(self, names: tuple[str, ...] | None = None) -> None:
         """Validate settings required by a phase without exposing their values."""
@@ -52,6 +63,16 @@ class Settings(BaseSettings):
         missing_fields = [name for name in required_names if not getattr(self, name, None)]
         if missing_fields:
             raise SettingsConfigurationError(missing_fields)
+
+    def validate_infrastructure_settings(self) -> None:
+        """Validate settings required by the Phase 02 infrastructure clients."""
+        self.validate_required_settings(
+            self.phase_required_settings + self.infrastructure_required_settings
+        )
+
+    def has_infrastructure_settings(self) -> bool:
+        """Return whether adapters can be constructed without exposing setting values."""
+        return all(getattr(self, name, None) for name in self.infrastructure_required_settings)
 
 
 @lru_cache
