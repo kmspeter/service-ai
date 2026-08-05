@@ -29,7 +29,7 @@ VERIFIED
 | Phase | 내용 | 상태 | 검증 |
 | ---: | --- | --- | --- |
 | 01 | Project Skeleton | VERIFIED | Unit/Integration 10 tests + curl 검증 통과 |
-| 02 | Infrastructure Clients | NOT_STARTED | - |
+| 02 | Infrastructure Clients | VERIFIED | Docker Compose + 22 tests + `/ready` 검증 통과 |
 | 03 | LLM Provider Abstraction | NOT_STARTED | - |
 | 04 | Embedding Provider | NOT_STARTED | - |
 | 05 | Parser Layer | NOT_STARTED | - |
@@ -54,7 +54,7 @@ VERIFIED
 ## 현재 Phase
 
 ```text
-Phase: 01
+Phase: 02
 Status: VERIFIED
 ```
 
@@ -62,37 +62,40 @@ Status: VERIFIED
 
 ## 구현 완료
 
-- Python 3.12 FastAPI 애플리케이션 팩토리 및 실행 진입점
-- API Router와 `/health`, `/ready` 응답 Schema
-- 환경변수 및 `.env` 기반 중앙 설정 계층과 테스트 설정 주입
-- 향후 Phase별 필수 설정 검증 구조
-- timestamp, level, logger, request_id, message를 포함하는 JSON Logging
-- 요청 ID Middleware 및 응답 Header 전달
-- Validation, External Service, Resource Not Found, AI Processing, Internal Error 공통 예외 구조
-- Stack Trace와 내부 예외 상세를 노출하지 않는 표준 오류 응답
-- Python 3.12 venv 기반 의존성/테스트/정적 검사 구성
-- `.env.example` 및 Secret 제외 `.gitignore`
+- Qdrant `1.18.2`, MinIO `RELEASE.2025-06-13T11-33-47Z` 로컬 Docker Compose 구성
+- Qdrant/MinIO named volume과 localhost 전용 기본 포트 바인딩
+- Application Service가 SDK를 직접 사용하지 않는 `QdrantRepository`/`ObjectStorage` Port
+- Qdrant 연결, collection 존재/생성/정보/삭제 Adapter
+- MinIO 연결, bucket 확인/개발환경 자동 생성, object 저장/읽기/삭제 Adapter
+- Qdrant production collection vector dimension을 확정하지 않고 생성 호출자가 dimension을 명시하는 구조
+- SDK 오류를 Connection/Timeout/Authentication/Not Found/External Service 오류로 변환
+- Qdrant와 MinIO SDK client timeout 설정 및 lifecycle 종료 처리
+- `/ready`의 application/Qdrant/MinIO 상태 확인과 실패 시 HTTP 503 처리
+- 환경변수 기반 Credential 설정과 Secret 비노출
+- 현재 파일과 계층 책임을 명시한 `docs/FILE_STRUCTURE.md`
 
 ---
 
 ## 검증
 
-- Command: `.\.venv\Scripts\python.exe --version`
-  - Result: PASS (`Python 3.12.10`)
-- Command: `.\.venv\Scripts\python.exe -m pip install -e ".[dev]"`
-  - Result: PASS
 - Command: `.\.venv\Scripts\python.exe -m ruff check .`
   - Result: PASS
 - Command: `.\.venv\Scripts\python.exe -m pytest tests/unit -q`
-  - Result: PASS (`5 passed`)
-- Command: `.\.venv\Scripts\python.exe -m pytest tests/integration -q`
-  - Result: PASS (`5 passed`)
-- Command: `.\.venv\Scripts\python.exe -m pytest -q`
-  - Result: PASS (`10 passed`)
-- Command: `curl.exe --include http://localhost:8000/health`
-  - Result: PASS (`HTTP 200`, `{"status":"ok"}`)
-- Command: `curl.exe --include http://localhost:8000/ready`
-  - Result: PASS (`HTTP 200`, `{"status":"ready","checks":{"configuration":"ok"}}`)
+  - Result: PASS (`12 passed`)
+- Command: Infrastructure 환경변수 설정 후 `.\.venv\Scripts\python.exe -m pytest -q`
+  - Result: PASS (`22 passed`)
+- Command: `docker compose up -d`
+  - Result: PASS (Qdrant/MinIO container 시작)
+- Command: `docker compose ps`
+  - Result: PASS (Qdrant `healthy`, MinIO `healthy`)
+- Command: Qdrant/MinIO Integration Test
+  - Result: PASS (`4 passed`; collection/bucket/object 정리 포함)
+- Command: `curl.exe http://localhost:6333/healthz`
+  - Result: PASS (`healthz check passed`)
+- Command: `curl.exe http://localhost:9000/minio/health/live`
+  - Result: PASS (`HTTP 200`)
+- Command: 실제 Uvicorn 실행 후 `curl.exe --include http://localhost:8000/ready`
+  - Result: PASS (`HTTP 200`, application/Qdrant/MinIO 모두 `ok`)
 - Command: `git diff --check`
   - Result: PASS
 - Command: tracked source Secret assignment scan
@@ -108,36 +111,36 @@ Status: VERIFIED
 
 ## 미검증 항목
 
-- Phase 01 범위 내 미검증 항목 없음.
-- Qdrant, MinIO 및 외부 Provider 연결은 Phase 01 제외 범위이므로 검증하지 않음.
+- Phase 02 범위 내 미검증 항목 없음.
+- Parser, Ingestion, Embedding, Retrieval, RAG, Agent, WebSocket Chat, Queue는 Phase 02 제외 범위로 구현/검증하지 않음.
 
 ---
 
 ## 변경 파일
 
 - `.env.example`
-- `.gitignore`
+- `compose.yaml`
 - `pyproject.toml`
 - `README.md`
-- `app/__init__.py`
 - `app/main.py`
-- `app/api/__init__.py`
-- `app/api/router.py`
 - `app/api/health.py`
-- `app/core/__init__.py`
 - `app/core/config.py`
-- `app/core/logging.py`
-- `app/core/request_context.py`
 - `app/core/exceptions.py`
-- `app/schemas/__init__.py`
-- `app/schemas/health.py`
-- `tests/__init__.py`
+- `app/infrastructure.py`
+- `app/adapters/__init__.py`
+- `app/adapters/qdrant.py`
+- `app/adapters/minio.py`
+- `app/ports/__init__.py`
+- `app/ports/qdrant.py`
+- `app/ports/storage.py`
 - `tests/conftest.py`
-- `tests/unit/test_application.py`
-- `tests/unit/test_config.py`
-- `tests/unit/test_logging.py`
+- `tests/fakes.py`
+- `tests/unit/adapters/test_qdrant_adapter.py`
+- `tests/unit/adapters/test_minio_adapter.py`
 - `tests/integration/test_health.py`
-- `tests/integration/test_exceptions.py`
+- `tests/integration/qdrant/test_qdrant_integration.py`
+- `tests/integration/minio/test_minio_integration.py`
+- `docs/FILE_STRUCTURE.md`
 - `docs/TESTING.md`
 - `docs/PROGRESS.md`
 
@@ -145,7 +148,7 @@ Status: VERIFIED
 
 ## 다음 작업
 
-- Phase 01 검증 완료. 사용자 요청 시 `Phase 02 — Infrastructure Clients` 진행 가능.
+- Phase 02 검증 완료. 사용자 요청 시 `Phase 03 — LLM Provider Abstraction` 진행 가능.
 
 ---
 

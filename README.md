@@ -54,6 +54,7 @@ docs/
 ├─ CONTRACTS.md
 ├─ TESTING.md
 ├─ DECISIONS.md
+├─ FILE_STRUCTURE.md
 └─ PROGRESS.md
 ```
 
@@ -69,6 +70,7 @@ docs/
 | `TESTING.md` | Unit / Integration / CLI 검증 정책 |
 | `DECISIONS.md` | 확정 설계 결정 기록 |
 | `PROGRESS.md` | 구현 진행 상태 |
+| `FILE_STRUCTURE.md` | 현재 파일 구조와 계층별 책임 |
 
 ---
 
@@ -119,11 +121,14 @@ Backend가 필요한 경계는 실제 Backend 계약을 침범하지 않는 개�
 3. 의존성 설치
 4. `docs/DEVELOPMENT_PLAN.md`의 Phase 순서대로 진행
 
-Windows PowerShell 기준 Phase 01 실행 방법:
+Windows PowerShell 기준 실행 방법:
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+Copy-Item .env.example .env
+# .env에서 로컬 개발 Credential 설정
+docker compose up -d
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
@@ -141,4 +146,5 @@ curl.exe http://localhost:8000/ready
 .\.venv\Scripts\python.exe -m ruff check .
 ```
 
-Phase 01의 readiness는 애플리케이션 설정만 확인한다. Qdrant와 MinIO 연결 점검은 Phase 02에서 추가한다.
+`/ready`는 애플리케이션 설정, Qdrant 연결, MinIO 연결과 bucket 접근을 확인한다. 개발환경에서
+`MINIO_AUTO_CREATE_BUCKET=true`이면 애플리케이션 시작 시 설정된 bucket 생성을 시도한다.

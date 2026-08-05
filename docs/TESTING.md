@@ -81,6 +81,20 @@ Integration:
 .\.venv\Scripts\python.exe -m pytest tests/integration
 ```
 
+Phase 02 실제 Infrastructure Integration Test:
+
+```powershell
+$env:RUN_INFRASTRUCTURE_TESTS="1"
+$env:QDRANT_URL="http://localhost:6333"
+$env:MINIO_URL="http://localhost:9000"
+$env:MINIO_ACCESS_KEY="<local-development-access-key>"
+$env:MINIO_SECRET_KEY="<local-development-secret-key>"
+.\.venv\Scripts\python.exe -m pytest tests/integration/qdrant tests/integration/minio -q
+```
+
+이 테스트들은 고유한 test collection/bucket을 만들고 가능한 경우 `finally`에서 정리한다. 환경변수가
+없거나 `RUN_INFRASTRUCTURE_TESTS=1`이 아니면 실제 Infrastructure Test는 명시적으로 skip된다.
+
 특정 테스트:
 
 ```powershell
