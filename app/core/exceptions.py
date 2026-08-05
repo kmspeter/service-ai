@@ -70,6 +70,21 @@ class AIProcessingError(ApplicationError):
     public_message = "The AI request could not be processed."
 
 
+class SummaryGenerationError(AIProcessingError):
+    code = "SUMMARY_GENERATION_FAILED"
+    public_message = "The document summary could not be generated."
+
+    def __init__(self, *, stage: str, chunk_index: int | None = None) -> None:
+        self.stage = stage
+        self.chunk_index = chunk_index
+        super().__init__()
+
+
+class SummaryBudgetError(ApplicationValidationError):
+    code = "SUMMARY_TOKEN_BUDGET_INVALID"
+    public_message = "The summary token budget cannot fit the required prompt."
+
+
 class LLMError(ApplicationError):
     """Base class for standardized LLM provider failures."""
 

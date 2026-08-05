@@ -45,6 +45,7 @@ markers = [
     "ingestion: requires RUN_INGESTION_INTEGRATION_TESTS=1 and full Phase 07 dependencies",
     "retrieval: Phase 09 dense retrieval tests against local Qdrant",
     "rag: Phase 10 pure RAG tests; provider E2E requires RUN_RAG_INTEGRATION_TESTS=1",
+    "summary: Phase 11 document summary tests; provider E2E requires RUN_SUMMARY_INTEGRATION_TESTS=1",
 ]
 
 [tool.ruff]

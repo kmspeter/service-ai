@@ -113,6 +113,40 @@ def test_retrieval_settings_load_from_environment(monkeypatch: pytest.MonkeyPatc
     assert settings.max_context_tokens == 4096
 
 
+def test_summary_budget_settings_load_from_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LLM_CONTEXT_WINDOW", "32768")
+    monkeypatch.setenv("SUMMARY_SAFETY_MARGIN_TOKENS", "384")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.llm_context_window == 32768
+    assert settings.summary_safety_margin_tokens == 384
+
+
+def test_summary_settings_require_model_context_window() -> None:
+    settings = Settings(
+        environment="test",
+        llm_provider="openai",
+        llm_api_key="test-secret",
+        llm_model="test-model",
+        llm_context_window=None,
+        qdrant_url="http://qdrant.test:6333",
+        qdrant_collection="documents",
+        minio_url="http://minio.test:9000",
+        minio_access_key="test-access",
+        minio_secret_key="test-secret",
+        minio_bucket="documents",
+        _env_file=None,
+    )
+
+    with pytest.raises(SettingsConfigurationError) as exc_info:
+        settings.validate_summary_settings()
+
+    assert exc_info.value.missing_fields == ("llm_context_window",)
+
+
 @pytest.mark.parametrize(
     ("name", "value"),
     [

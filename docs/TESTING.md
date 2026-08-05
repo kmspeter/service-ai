@@ -713,6 +713,23 @@ Context를 초과하는 큰 문서.
 
 전략 판단이 LLM Agent가 아니라 Python 규칙으로 이루어지는지 확인한다.
 
+## 실제 Provider E2E
+
+비민감 합성 Fixture만 사용하여 실제 MinIO, Qdrant, 외부 LLM 경계를 함께 검증한다.
+
+```powershell
+$env:RUN_SUMMARY_INTEGRATION_TESTS='1'
+.\.venv\Scripts\python.exe -m pytest tests\integration\summary\test_summary_provider_integration.py -q
+```
+
+검증:
+
+- MinIO 원본 저장/조회
+- 사용자 Scope가 포함된 Qdrant 문서 위치 Metadata 조회
+- 작은 문서 Direct Summary와 합성 Marker 보존
+- 큰 문서 Hierarchical Map/Final Reduce와 처음/마지막 합성 Marker 보존
+- 테스트 전용 MinIO Object/Bucket과 Qdrant Collection 정리
+
 ---
 
 # 17. Query Rewrite Test
