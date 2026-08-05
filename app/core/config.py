@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     llm_provider: str | None = None
     llm_api_key: SecretStr | None = None
     llm_model: str | None = None
+    llm_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
+    llm_max_output_tokens: int = Field(default=1024, ge=1, le=100_000)
+    llm_temperature: float | None = Field(default=None, ge=0, le=2)
     embedding_model: str | None = None
 
     qdrant_url: AnyHttpUrl | None = None
@@ -56,6 +59,11 @@ class Settings(BaseSettings):
         "minio_secret_key",
         "minio_bucket",
     )
+    llm_required_settings: ClassVar[tuple[str, ...]] = (
+        "llm_provider",
+        "llm_api_key",
+        "llm_model",
+    )
 
     def validate_required_settings(self, names: tuple[str, ...] | None = None) -> None:
         """Validate settings required by a phase without exposing their values."""
@@ -73,6 +81,10 @@ class Settings(BaseSettings):
     def has_infrastructure_settings(self) -> bool:
         """Return whether adapters can be constructed without exposing setting values."""
         return all(getattr(self, name, None) for name in self.infrastructure_required_settings)
+
+    def validate_llm_settings(self) -> None:
+        """Validate settings required by the Phase 03 LLM provider."""
+        self.validate_required_settings(self.phase_required_settings + self.llm_required_settings)
 
 
 @lru_cache
