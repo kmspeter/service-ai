@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     embedding_batch_size: int = Field(default=32, ge=1, le=2_048)
     top_k: int = Field(default=5, ge=1, le=100)
     score_threshold: float = Field(default=0.5, ge=-1.0, le=1.0)
+    max_context_tokens: int = Field(default=12_000, ge=128, le=1_000_000)
 
     qdrant_url: AnyHttpUrl | None = None
     qdrant_api_key: SecretStr | None = None
@@ -82,6 +83,10 @@ class Settings(BaseSettings):
     retrieval_required_settings: ClassVar[tuple[str, ...]] = (
         "qdrant_url",
         "qdrant_collection",
+    )
+    rag_required_settings: ClassVar[tuple[str, ...]] = (
+        *retrieval_required_settings,
+        *llm_required_settings,
     )
 
     @field_validator("chunk_overlap")
@@ -158,6 +163,20 @@ class Settings(BaseSettings):
         return all(
             getattr(self, name, None) for name in self.retrieval_required_settings
         ) and self.has_embedding_settings()
+
+    def validate_rag_settings(self) -> None:
+        """Validate settings required by the Phase 10 pure RAG pipeline."""
+        self.validate_required_settings(
+            self.phase_required_settings + self.rag_required_settings
+        )
+        self.validate_embedding_settings()
+
+    def has_rag_settings(self) -> bool:
+        """Return whether retrieval and LLM dependencies can both be constructed."""
+        return (
+            all(getattr(self, name, None) for name in self.rag_required_settings)
+            and self.has_embedding_settings()
+        )
 
 
 @lru_cache

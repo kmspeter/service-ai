@@ -37,7 +37,7 @@ VERIFIED
 | 07 | Document Ingestion Pipeline | VERIFIED | 전체 187 tests 무-skip + 실제 HF/MinIO/Qdrant/curl Payload 검증 통과 |
 | 08 | Document Delete & Status | VERIFIED | Unit/API 32 tests + 전체 192 tests + 실제 Qdrant 10 tests 통과 |
 | 09 | Vector Retrieval | VERIFIED | Unit/Adapter 36 tests + 전체 212 tests + 실제 Qdrant Retrieval 검증 통과 |
-| 10 | Agent 없는 RAG + Citation | NOT_STARTED | - |
+| 10 | Agent 없는 RAG + Citation | VERIFIED | Unit 22 + 실제 Embedding/Qdrant/LLM E2E + 외부 포함 전체 234 tests 통과 |
 | 11 | Document Summary | NOT_STARTED | - |
 | 12 | Query Rewrite | NOT_STARTED | - |
 | 13 | Context & Token Budget Manager | NOT_STARTED | - |
@@ -54,7 +54,7 @@ VERIFIED
 ## 현재 Phase
 
 ```text
-Phase: 09
+Phase: 10
 Status: VERIFIED
 ```
 
@@ -62,45 +62,55 @@ Status: VERIFIED
 
 ## 구현 완료
 
-- Agent 없이 `Query → Embedding → Qdrant Dense Search → Filter → Top-K → Score Threshold` 흐름 구현
-- 설정 계층에 `TOP_K=5`, `SCORE_THRESHOLD=0.5` 기본값과 범위 검증 추가
-- 내부 요청별 `top_k`, `score_threshold` Override 지원
-- 모든 검색에 `user_id` Qdrant Filter를 강제하고 문서 범위가 있으면
-  단일 `document_id` 또는 복수 `document_ids` Filter 추가
-- 단일/복수 문서 범위 상호 배타 Validation과 중복 `document_ids` 정규화
-- Qdrant SDK 검색 결과를 Port DTO로 격리하고 외부 오류 변환 경계 유지
-- Phase 10 Citation Source로 직접 사용할 수 있는 `chunk_id`, `document_id`, `filename`,
-  `page`, `section`, `score`, `content` Retrieval Result 구현
-- Citation 필수 Metadata가 누락되거나 타입이 잘못된 Qdrant 결과는 명시적 오류로 차단
-- `user_id`, `document_id(s)`, Query, Top-K, Threshold를 입력해 결과를 확인하는
-  `scripts.inspect_retrieval` 개발 CLI 추가
-- Reranker, Hybrid Search, Multi Query, HyDE, Agent는 구현하지 않음
+- Agent 없이 `Question → Retrieval → Retrieved Chunks → RAG Context → RAG Prompt → LLM → Answer + Citation` 흐름 구현
+- 기존 `RetrievalService`와 Provider 중립 `LLMService` 경계를 조합하는 `RAGService` 구현
+- RAG Answer Prompt와 근거 부족 문구를 `app/prompts/rag.py`에서 단일 관리
+- JSON Context의 `metadata`와 `content`를 분리하고 Prompt에서 본문만 사실 근거로 사용하도록 제한
+- `MAX_CONTEXT_TOKENS=12000` 기본 상한과 설정 검증 추가
+- 완전한 Chunk를 검색 순서대로 우선 포함하고 첫 Chunk가 상한보다 클 때만 본문을 상한까지 축약
+- Citation을 LLM 출력과 무관하게 실제 Context Result의 `document_id`, `filename`, `chunk_id`,
+  `page`, `section`에서 Application이 생성
+- 동일 5개 Citation 필드의 완전 중복은 최초 검색 순서를 유지하며 제거
+- 검색 결과 없음/Threshold 미통과 시 LLM을 호출하지 않고 `제공된 문서에서 확인할 수 없습니다.`와 빈 Citation 반환
+- 전체 Retrieval 결과와 실제 Context 포함 결과를 분리해 반환하여 Citation 대응 관계를 디버깅 가능하게 유지
+- `scripts.inspect_rag` Agent 없는 개발 CLI 추가
+- 실제 Embedding Provider → 임시 Qdrant Collection → Retrieval → RAG Context → 실제 LLM → Citation을
+  검증하는 조건부 Provider E2E 추가
+- Phase 13 전체 Context Budget Manager, Agent, Tool, Query Rewrite는 구현하지 않음
 
 ---
 
 ## 검증
 
-- Phase 08 사전 상태 확인
-  - `docs/PROGRESS.md`: Phase 08 `VERIFIED`, Blocker/미검증 없음, Phase 09 진행 가능 확인
-- Phase 09 Unit/Adapter/Config
-  - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_retrieval.py tests\unit\adapters\test_qdrant_adapter.py tests\unit\test_config.py -q`
-  - Result: PASS (`36 passed`)
-  - Query Embedding, 기본/Override Top-K·Threshold, 단일/복수 문서 Scope, 요청 Validation,
-    Citation-ready Metadata 변환, Qdrant Filter 형태 확인
-- 실제 Qdrant Retrieval
-  - Command: `RUN_INFRASTRUCTURE_TESTS=1`, `QDRANT_URL=http://127.0.0.1:6333` 적용 후
-    `.\.venv\Scripts\python.exe -m pytest tests\integration\retrieval\test_retrieval_integration.py -q`
-  - Result: PASS (`1 passed`)
-  - 동일 Query Vector에서 `user-001`/`user-002` 완전 격리, `document_ids=[doc-001]`의
-    `doc-002` 제외, 관련/부분 관련/무관 점수 순서, Top-K와 Threshold 변화 확인
-- 실제 Qdrant 전체 Regression + Retrieval
-  - Command: `RUN_INFRASTRUCTURE_TESTS=1`, `QDRANT_URL=http://127.0.0.1:6333` 적용 후
-    `.\.venv\Scripts\python.exe -m pytest tests\integration\qdrant tests\integration\retrieval\test_retrieval_integration.py -q`
-  - Result: PASS (`6 passed`)
+- Phase 09 사전 상태 확인
+  - `docs/PROGRESS.md`: Phase 09 `VERIFIED`, Blocker 없음, 실제 Qdrant Retrieval 검증 완료 확인
+- Phase 10 Unit/Deterministic Integration/Config
+  - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_rag.py tests\integration\rag\test_rag_pipeline.py tests\unit\test_config.py -q`
+  - Result: PASS (`22 passed`)
+  - 근거 있음, 근거 없음, Threshold 미통과, 여러 문서/Page/Chunk, Citation↔Context Result 일치,
+    중복 Citation, LLM 가짜 Citation 격리, Context token 상한, 의존성 종료 확인
 - Command: `.\.venv\Scripts\python.exe -m pytest -q`
-  - Result: PASS (`212 passed, 13 skipped`; 조건부 외부 Infrastructure/LLM/Embedding/Ingestion/Retrieval Test)
-- Command: `.\.venv\Scripts\python.exe -m scripts.inspect_retrieval --help`
-  - Result: PASS (사용자/단일·복수 문서/Query/Top-K/Threshold 인자 확인)
+  - Result: PASS (`220 passed, 14 skipped`; 조건부 외부 Infrastructure/LLM/Embedding/Ingestion/Retrieval/RAG Test)
+- 실제 외부 Embedding/Qdrant/LLM Pure RAG E2E
+  - Command: `RUN_RAG_INTEGRATION_TESTS=1` 적용 후
+    `.\.venv\Scripts\python.exe -m pytest tests\integration\rag\test_rag_provider_integration.py -q`
+  - Result: PASS (`1 passed`)
+  - 실제 Embedding Vector 저장/검색, 전용 RAG Prompt를 통한 실제 LLM 답변의 `COBALT-731` 확인,
+    `document_id`, `filename`, `chunk_id`, `page`, `section` Citation 일치, 테스트 Collection 삭제 확인
+- 모든 조건부 외부/Infrastructure Test 전체 회귀
+  - Command: `RUN_INFRASTRUCTURE_TESTS=1`, `RUN_LLM_INTEGRATION_TESTS=1`,
+    `RUN_EMBEDDING_INTEGRATION_TESTS=1`, `RUN_INGESTION_INTEGRATION_TESTS=1`,
+    `RUN_RETRIEVAL_INTEGRATION_TESTS=1`, `RUN_RAG_INTEGRATION_TESTS=1` 적용 후
+    `.\.venv\Scripts\python.exe -m pytest -q`
+  - Result: PASS (`234 passed`, skip 없음)
+  - 실제 외부 LLM/Embedding, MinIO, Qdrant, Ingestion, Retrieval, Pure RAG 전체 조건부 테스트 통과
+- 재검증 기록
+  - 첫 전체 외부 실행은 `.env` 값을 프로세스 환경으로 내보내지 않아 Infrastructure 9 tests 실패;
+    Secret 노출 없이 환경을 주입한 재실행에서 기존 전체 `233 passed`
+  - Pure RAG E2E 첫 실행은 Hugging Face 요청이 30초를 초과해 timeout;
+    테스트 전용 timeout만 120초로 조정한 재실행과 최종 전체 회귀 통과
+- Command: `.\.venv\Scripts\python.exe -m scripts.inspect_rag --help`
+  - Result: PASS (Agent 없이 사용자/단일·복수 문서/질문/Top-K/Threshold 인자 확인)
 - Command: `.\.venv\Scripts\python.exe -m ruff check .`
   - Result: PASS
 - Command: `.\.venv\Scripts\python.exe -m pip check`
@@ -118,34 +128,31 @@ Status: VERIFIED
 
 ## 미검증 항목
 
-- 실제 Hugging Face Embedding Provider와 Qdrant를 함께 사용하는 선택형 품질 E2E는
-  테스트 문장의 외부 API 전송 승인이 없어 실행하지 않음.
-- Provider 자체 Embedding 호출/Dimension은 Phase 04에서 실제 검증 완료했고, Phase 09 필수 흐름은
-  결정적 Query Embedding과 실제 Qdrant로 검증했으므로 Phase 완료를 막지 않음.
+- 없음. 현재 설정된 실제 외부 Embedding/LLM Provider와 로컬 Qdrant·MinIO를 사용하는 모든 조건부
+  테스트를 실행했으며 skip 없이 통과함.
 
 ---
 
 ## 변경 파일
 
 - `.env.example`, `README.md`, `pyproject.toml`
-- `app/core/config.py`, `app/core/exceptions.py`
-- `app/models/retrieval.py`, `app/ports/qdrant.py`, `app/adapters/qdrant.py`
-- `app/services/retrieval.py`, `app/retrieval.py`
-- `scripts/inspect_retrieval.py`
-- `tests/unit/test_retrieval.py`, `tests/unit/test_config.py`
-- `tests/unit/adapters/test_qdrant_adapter.py`
-- `tests/integration/retrieval/__init__.py`
-- `tests/integration/retrieval/test_retrieval_integration.py`
-- `tests/integration/retrieval/test_retrieval_provider_integration.py`
-- `docs/CONTRACTS.md`, `docs/DECISIONS.md`, `docs/FILE_STRUCTURE.md`
-- `docs/PROGRESS.md`, `docs/TESTING.md`
+- `app/core/config.py`
+- `app/models/rag.py`
+- `app/prompts/__init__.py`, `app/prompts/rag.py`
+- `app/services/rag_context.py`, `app/services/rag.py`, `app/rag.py`
+- `scripts/inspect_rag.py`
+- `tests/unit/test_rag.py`, `tests/unit/test_config.py`
+- `tests/integration/rag/__init__.py`, `tests/integration/rag/test_rag_pipeline.py`
+- `tests/integration/rag/test_rag_provider_integration.py`
+- `docs/ARCHITECTURE.md`, `docs/CONTRACTS.md`, `docs/DECISIONS.md`
+- `docs/FILE_STRUCTURE.md`, `docs/PROGRESS.md`, `docs/TESTING.md`
 
 ---
 
 ## 다음 작업
 
-- Phase 09 필수 범위와 실제 Qdrant 검증이 완료되어 Phase 10 진행 가능.
-- 운영 Embedding Model의 의미 검색 품질 기준을 별도로 확정할 경우 선택형 Provider E2E를 실행한다.
+- Phase 10 필수 범위와 회귀 검증이 완료되어 Phase 11 진행 가능.
+- 운영 Provider/Model을 변경하면 동일한 조건부 전체 회귀를 다시 실행한다.
 
 ---
 

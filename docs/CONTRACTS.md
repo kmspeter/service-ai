@@ -304,6 +304,10 @@ Retrieval Result는 Citation의 실제 근거다.
 - TXT: `chunk_id`가 기본 위치 식별자
 - MD: `chunk_id` + 가능한 경우 `section`
 - 실제 Retrieval Result에 없는 Citation 생성 금지
+- LLM이 Citation을 생성하거나 Citation 문자열을 반환값의 근거로 사용하지 않음
+- 실제 LLM Context에 포함된 Retrieval Result에서만 Citation 생성
+- `(document_id, filename, chunk_id, page, section)`이 모두 같은 중복 Citation은 최초 순서를 유지하며 제거
+- Retrieval 결과가 없거나 Score Threshold를 통과한 결과가 없으면 Citation은 빈 목록
 
 ---
 

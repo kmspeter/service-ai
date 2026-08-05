@@ -254,6 +254,10 @@ section
 
 실제 검색 근거가 없는 Citation은 생성하지 않는다.
 
+Phase 10에서는 실제 LLM Context에 포함된 Retrieval Result만 Citation Source로 사용한다.
+동일한 `(document_id, filename, chunk_id, page, section)` Citation은 검색 순서를 유지하며 한 번만 반환한다.
+LLM이 답변 본문에 생성한 Citation 형태 문자열은 Application Citation으로 채택하지 않는다.
+
 ---
 
 ## D019 — Chat Streaming은 WebSocket이다

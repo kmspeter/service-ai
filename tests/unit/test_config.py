@@ -104,16 +104,23 @@ def test_chunk_settings_load_from_environment(monkeypatch: pytest.MonkeyPatch) -
 def test_retrieval_settings_load_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TOP_K", "9")
     monkeypatch.setenv("SCORE_THRESHOLD", "0.72")
+    monkeypatch.setenv("MAX_CONTEXT_TOKENS", "4096")
 
     settings = Settings(_env_file=None)
 
     assert settings.top_k == 9
     assert settings.score_threshold == 0.72
+    assert settings.max_context_tokens == 4096
 
 
 @pytest.mark.parametrize(
     ("name", "value"),
-    [("TOP_K", "0"), ("TOP_K", "101"), ("SCORE_THRESHOLD", "1.1")],
+    [
+        ("TOP_K", "0"),
+        ("TOP_K", "101"),
+        ("SCORE_THRESHOLD", "1.1"),
+        ("MAX_CONTEXT_TOKENS", "127"),
+    ],
 )
 def test_invalid_retrieval_setting_is_rejected(
     monkeypatch: pytest.MonkeyPatch, name: str, value: str

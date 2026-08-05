@@ -30,7 +30,10 @@ service-ai/
 │  ├─ models/
 │  │  ├─ document.py             # Parser/Chunk/DocumentStatistics 내부 모델
 │  │  ├─ ingestion.py            # 처리 Context/Result/표준 실패 사유 내부 모델
-│  │  └─ retrieval.py            # Retrieval Request와 Citation-ready Result 내부 모델
+│  │  ├─ retrieval.py            # Retrieval Request와 Citation-ready Result 내부 모델
+│  │  └─ rag.py                  # Pure RAG Request/Response와 Citation 내부 모델
+│  ├─ prompts/
+│  │  └─ rag.py                  # 전용 RAG Answer Prompt와 근거 부족 응답
 │  ├─ parsers/
 │  │  ├─ base.py                 # 문서 Parser Protocol
 │  │  ├─ encoding.py             # TXT/MD 공통 Unicode Encoding 정책
@@ -43,6 +46,8 @@ service-ai/
 │  │  ├─ document_management.py  # Scoped Vector 삭제, 상태 Registry/조회, 문서 작업 Lock
 │  │  ├─ ingestion.py            # 문서 Ingestion 오케스트레이션과 재처리 정책
 │  │  ├─ retrieval.py            # Query Embedding과 scoped Dense Vector Retrieval
+│  │  ├─ rag_context.py           # Metadata/Text 분리 및 token 상한 Context Builder
+│  │  ├─ rag.py                   # Retrieval → Context → LLM → Citation 오케스트레이션
 │  │  ├─ llm.py                  # Provider 중립 LLM Application Service
 │  │  └─ embedding.py            # 단일/Batch Embedding과 Qdrant Dimension 정책
 │  ├─ schemas/
@@ -55,10 +60,12 @@ service-ai/
 │  ├─ embedding.py              # 설정 기반 Embedding Provider 조립
 │  ├─ ingestion.py              # 설정 기반 Ingestion Service 조립
 │  ├─ retrieval.py              # 설정 기반 Retrieval Service 조립
+│  ├─ rag.py                    # 설정 기반 Pure RAG Service 조립
 │  └─ main.py                   # FastAPI application factory
 ├─ scripts/
 │  ├─ inspect_chunking.py        # Parser → Chunking 개발 확인 CLI
 │  ├─ inspect_retrieval.py       # 사용자/문서 범위 Retrieval 결과 확인 CLI
+│  ├─ inspect_rag.py             # Agent 없는 Pure RAG 전체 흐름 확인 CLI
 │  └─ test_llm.py               # Agent/RAG와 무관한 실제 LLM 호출 CLI
 ├─ tests/
 │  ├─ fixtures/documents/        # 비민감 TXT/MD/PDF Parser Fixture
@@ -119,5 +126,9 @@ External SDK / Qdrant / MinIO
 - Qdrant Retrieval은 문서 범위 유무와 무관하게 `user_id` Filter를 항상 사용한다.
 - 문서 범위가 있으면 단일 `document_id` 또는 복수 `document_ids` Filter를 추가한다.
 - Retrieval Result는 Phase 10 Citation에 필요한 Chunk 본문과 위치 Metadata를 보존한다.
+- RAG Prompt는 `app/prompts/rag.py`에서 단일 관리하며 Service에 Prompt 문자열을 분산하지 않는다.
+- RAG Context는 `MAX_CONTEXT_TOKENS` 상한 내에서 Metadata와 본문을 분리해 구성한다.
+- Citation은 Context에 포함된 실제 Retrieval Result에서만 생성하고 완전 중복은 검색 순서를 유지해 제거한다.
+- 근거가 없으면 LLM을 호출하지 않고 근거 부족 응답과 빈 Citation을 반환한다.
 - 처리 중/최근 실패 상태는 process-local Registry에만 두고 완료 상태는 Qdrant payload에서 복원한다.
 - 문서 삭제는 Qdrant Vector만 대상으로 하며 Backend Metadata와 MinIO 원본을 변경하지 않는다.

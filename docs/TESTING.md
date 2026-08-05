@@ -620,6 +620,42 @@ $env:QDRANT_URL='http://127.0.0.1:6333'
 - 임의 Citation 생성하지 않음
 - 근거 부족 표현
 
+## 여러 출처 / Context 상한
+
+- 다른 문서·Page·Chunk의 Citation이 실제 Context Result와 일치
+- 동일 Citation은 최초 검색 순서를 유지하며 한 번만 반환
+- LLM 답변 본문의 가짜 Citation 문자열을 Application Citation으로 채택하지 않음
+- `MAX_CONTEXT_TOKENS`를 넘지 않으며 Context에 포함되지 않은 Chunk의 Citation을 반환하지 않음
+
+Phase 10 Unit/Deterministic Integration:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest `
+  tests\unit\test_rag.py `
+  tests\integration\rag\test_rag_pipeline.py `
+  tests\unit\test_config.py -q
+```
+
+Agent 없는 개발용 RAG 진입점:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.inspect_rag `
+  --user-id user-001 `
+  --document-ids doc-001 doc-002 `
+  --question "Qdrant의 장점은 무엇인가?"
+```
+
+실제 Embedding Provider → Qdrant → Retrieval → RAG Context → LLM → Citation E2E:
+
+```powershell
+$env:RUN_RAG_INTEGRATION_TESTS='1'
+.\.venv\Scripts\python.exe -m pytest `
+  tests\integration\rag\test_rag_provider_integration.py -q
+```
+
+이 테스트는 `QDRANT_*`, Embedding/LLM Provider Credential과 외부 네트워크를 사용하며 API 비용이
+발생할 수 있다. 테스트 전용 Collection은 실행 후 삭제한다.
+
 ---
 
 # 15. Citation Test

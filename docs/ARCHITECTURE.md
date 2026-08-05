@@ -362,6 +362,14 @@ Citation
 
 문서 근거가 충분하지 않을 경우 근거 부족을 명시하는 방향으로 Prompt를 분리한다.
 
+Phase 10에서는 Phase 13의 전체 Context Budget Manager를 선행 구현하지 않는다. 대신
+`MAX_CONTEXT_TOKENS`로 RAG Context 자체에 명시적 상한을 두고, 검색 순서대로 완전한 Chunk를 우선
+포함한다. 첫 번째 Chunk 하나도 상한에 들어가지 않으면 해당 Chunk 본문만 상한까지 축약한다.
+
+Context는 JSON의 `metadata`와 `content`를 별도 필드로 구성하며 Prompt는 `content`만 사실 근거로
+사용하도록 지시한다. Citation은 LLM 출력에서 파싱하지 않고 Context에 실제 포함된 Retrieval Result를
+Application Service가 변환한다. 검색 결과가 없으면 LLM을 호출하지 않는다.
+
 ---
 
 # 9. Summary Architecture

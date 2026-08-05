@@ -193,6 +193,23 @@ SCORE_THRESHOLD=0.5
   --query "Qdrant의 장점은 무엇인가?"
 ```
 
+Agent 없는 순수 RAG는 Retrieval 결과를 token 상한 내 JSON Context로 구성하고, 전용 RAG Prompt로
+LLM 답변을 생성한다. Citation은 LLM 문자열이 아니라 실제 Context에 포함된 Retrieval Result에서
+애플리케이션이 생성한다. 검색 결과가 없으면 LLM을 호출하지 않고 근거 부족 응답과 빈 Citation을 반환한다.
+
+```text
+MAX_CONTEXT_TOKENS=12000
+```
+
+개발 환경에서는 Agent와 분리된 CLI로 RAG 전체 흐름을 직접 확인할 수 있다.
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.inspect_rag `
+  --user-id user-001 `
+  --document-ids doc-001 doc-002 `
+  --question "Qdrant의 장점은 무엇인가?"
+```
+
 테스트와 정적 검사:
 
 ```powershell
