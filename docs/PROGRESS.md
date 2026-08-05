@@ -38,7 +38,7 @@ VERIFIED
 | 08 | Document Delete & Status | VERIFIED | Unit/API 32 tests + 전체 192 tests + 실제 Qdrant 10 tests 통과 |
 | 09 | Vector Retrieval | VERIFIED | Unit/Adapter 36 tests + 전체 212 tests + 실제 Qdrant Retrieval 검증 통과 |
 | 10 | Agent 없는 RAG + Citation | VERIFIED | Unit 22 + 실제 Embedding/Qdrant/LLM E2E + 외부 포함 전체 234 tests 통과 |
-| 11 | Document Summary | NOT_STARTED | - |
+| 11 | Document Summary | VERIFIED | Unit 26 + 실제 MinIO/Qdrant/Gemini E2E + 전체 Regression 통과 |
 | 12 | Query Rewrite | NOT_STARTED | - |
 | 13 | Context & Token Budget Manager | NOT_STARTED | - |
 | 14 | Tool Layer | NOT_STARTED | - |
@@ -54,7 +54,7 @@ VERIFIED
 ## 현재 Phase
 
 ```text
-Phase: 10
+Phase: 11
 Status: VERIFIED
 ```
 
@@ -62,55 +62,47 @@ Status: VERIFIED
 
 ## 구현 완료
 
-- Agent 없이 `Question → Retrieval → Retrieved Chunks → RAG Context → RAG Prompt → LLM → Answer + Citation` 흐름 구현
-- 기존 `RetrievalService`와 Provider 중립 `LLMService` 경계를 조합하는 `RAGService` 구현
-- RAG Answer Prompt와 근거 부족 문구를 `app/prompts/rag.py`에서 단일 관리
-- JSON Context의 `metadata`와 `content`를 분리하고 Prompt에서 본문만 사실 근거로 사용하도록 제한
-- `MAX_CONTEXT_TOKENS=12000` 기본 상한과 설정 검증 추가
-- 완전한 Chunk를 검색 순서대로 우선 포함하고 첫 Chunk가 상한보다 클 때만 본문을 상한까지 축약
-- Citation을 LLM 출력과 무관하게 실제 Context Result의 `document_id`, `filename`, `chunk_id`,
-  `page`, `section`에서 Application이 생성
-- 동일 5개 Citation 필드의 완전 중복은 최초 검색 순서를 유지하며 제거
-- 검색 결과 없음/Threshold 미통과 시 LLM을 호출하지 않고 `제공된 문서에서 확인할 수 없습니다.`와 빈 Citation 반환
-- 전체 Retrieval 결과와 실제 Context 포함 결과를 분리해 반환하여 Citation 대응 관계를 디버깅 가능하게 유지
-- `scripts.inspect_rag` Agent 없는 개발 CLI 추가
-- 실제 Embedding Provider → 임시 Qdrant Collection → Retrieval → RAG Context → 실제 LLM → Citation을
-  검증하는 조건부 Provider E2E 추가
-- Phase 13 전체 Context Budget Manager, Agent, Tool, Query Rewrite는 구현하지 않음
+- `document_id`와 `user_id`로 Qdrant의 사용자 Scope 메타데이터를 조회하고 `source` 위치의 MinIO 원본을
+  기존 Parser Registry로 다시 파싱하는 `DocumentSummaryService` 구현
+- Qdrant Payload의 `chunk_text`를 원본 문서 Source로 사용하지 않고 저장 위치/파일명 메타데이터만 사용
+- 렌더링된 Direct Prompt Token, Model Context Window, Reserved Output Token, Safety Margin을 합산하는
+  Python 규칙 기반 `SummaryStrategySelector` 구현
+- 작은 문서는 전체 원문과 전용 Prompt를 한 번 호출하는 Direct Summary 구현
+- 큰 문서는 기존 Recursive Chunker를 현재 Map Prompt Budget에 맞춰 조정하고 Chunk별 Map Summary 수행
+- 부분 Summary 전체가 한 번에 들어가지 않으면 Intermediate Reduce를 반복한 뒤 Final Reduce를 수행하는
+  다단계 Hierarchical Summary 구현
+- Direct, Chunk Map, Intermediate Reduce, Final Reduce Prompt를 `app/prompts/summary.py`에서 분리 관리
+- `LLM_CONTEXT_WINDOW`, `SUMMARY_SAFETY_MARGIN_TOKENS` 설정과 Phase 11 설정 검증 추가
+- 문서 없음, MinIO 원본 없음, Prompt Budget 부족, LLM 단계별 실패를 명시적으로 처리
+- 비민감 합성 Fixture로 실제 MinIO/Qdrant/Gemini Direct·Hierarchical Summary E2E 추가
+- Agent Tool, Summary API, Query Rewrite, Phase 13 전체 Context Manager는 구현하지 않음
 
 ---
 
 ## 검증
 
-- Phase 09 사전 상태 확인
-  - `docs/PROGRESS.md`: Phase 09 `VERIFIED`, Blocker 없음, 실제 Qdrant Retrieval 검증 완료 확인
-- Phase 10 Unit/Deterministic Integration/Config
-  - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_rag.py tests\integration\rag\test_rag_pipeline.py tests\unit\test_config.py -q`
-  - Result: PASS (`22 passed`)
-  - 근거 있음, 근거 없음, Threshold 미통과, 여러 문서/Page/Chunk, Citation↔Context Result 일치,
-    중복 Citation, LLM 가짜 Citation 격리, Context token 상한, 의존성 종료 확인
-- Command: `.\.venv\Scripts\python.exe -m pytest -q`
-  - Result: PASS (`220 passed, 14 skipped`; 조건부 외부 Infrastructure/LLM/Embedding/Ingestion/Retrieval/RAG Test)
-- 실제 외부 Embedding/Qdrant/LLM Pure RAG E2E
-  - Command: `RUN_RAG_INTEGRATION_TESTS=1` 적용 후
-    `.\.venv\Scripts\python.exe -m pytest tests\integration\rag\test_rag_provider_integration.py -q`
-  - Result: PASS (`1 passed`)
-  - 실제 Embedding Vector 저장/검색, 전용 RAG Prompt를 통한 실제 LLM 답변의 `COBALT-731` 확인,
-    `document_id`, `filename`, `chunk_id`, `page`, `section` Citation 일치, 테스트 Collection 삭제 확인
-- 모든 조건부 외부/Infrastructure Test 전체 회귀
-  - Command: `RUN_INFRASTRUCTURE_TESTS=1`, `RUN_LLM_INTEGRATION_TESTS=1`,
-    `RUN_EMBEDDING_INTEGRATION_TESTS=1`, `RUN_INGESTION_INTEGRATION_TESTS=1`,
-    `RUN_RETRIEVAL_INTEGRATION_TESTS=1`, `RUN_RAG_INTEGRATION_TESTS=1` 적용 후
-    `.\.venv\Scripts\python.exe -m pytest -q`
-  - Result: PASS (`234 passed`, skip 없음)
-  - 실제 외부 LLM/Embedding, MinIO, Qdrant, Ingestion, Retrieval, Pure RAG 전체 조건부 테스트 통과
+- Phase 10 사전 상태 확인
+  - `docs/PROGRESS.md`: Phase 10 `VERIFIED`, Blocker 없음 확인
+- Phase 11 Summary/Config Unit
+  - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_summary.py tests\unit\test_config.py -q`
+  - Result: PASS (`26 passed`)
+  - Direct Summary, MinIO 원본 사용, Hierarchical Map/Final Reduce, 다단계 Intermediate Reduce,
+    Direct 가능 최대/불가능 최소 경계, 문서 없음, Direct LLM 실패, 두 번째 Map 실패, LLM 종료,
+    Context Window/Safety Margin 설정 검증
+- 실제 MinIO/Qdrant/Gemini Summary Provider E2E
+  - Command: `RUN_SUMMARY_INTEGRATION_TESTS=1` 적용 후
+    `.\.venv\Scripts\python.exe -m pytest tests\integration\summary\test_summary_provider_integration.py -q -s`
+  - Result: PASS (`1 passed in 67.49s`)
+  - MinIO 원본 2개 저장/조회, 사용자 Scope Qdrant Metadata 조회, Direct 1회,
+    Hierarchical Map 2회 + Final Reduce 1회, 처음/마지막 합성 Marker 보존, 임시 리소스 정리 확인
+- 실제 Summary E2E 포함 전체 회귀
+  - Command: `RUN_SUMMARY_INTEGRATION_TESTS=1` 적용 후 `.\.venv\Scripts\python.exe -m pytest -q`
+  - Result: PASS (`232 passed, 14 skipped in 79.40s`)
+  - 기존 비용 발생형 Embedding/RAG 조건부 E2E는 비활성, Summary Provider E2E만 활성
 - 재검증 기록
-  - 첫 전체 외부 실행은 `.env` 값을 프로세스 환경으로 내보내지 않아 Infrastructure 9 tests 실패;
-    Secret 노출 없이 환경을 주입한 재실행에서 기존 전체 `233 passed`
-  - Pure RAG E2E 첫 실행은 Hugging Face 요청이 30초를 초과해 timeout;
-    테스트 전용 timeout만 120초로 조정한 재실행과 최종 전체 회귀 통과
-- Command: `.\.venv\Scripts\python.exe -m scripts.inspect_rag --help`
-  - Result: PASS (Agent 없이 사용자/단일·복수 문서/질문/Top-K/Threshold 인자 확인)
+  - Sandbox 실행은 외부 Gemini 연결 차단으로 실패했으나 MinIO/Qdrant 경계와 정리 동작은 성공
+  - Gemini 출력 예약 160/512에서는 HTTP 200 응답이 미완료 상태여서 Adapter가 거부
+  - 테스트 입력 Budget을 유지하고 출력 예약을 4096으로 늘린 최종 실행에서 전체 단계 통과
 - Command: `.\.venv\Scripts\python.exe -m ruff check .`
   - Result: PASS
 - Command: `.\.venv\Scripts\python.exe -m pip check`
@@ -128,31 +120,27 @@ Status: VERIFIED
 
 ## 미검증 항목
 
-- 없음. 현재 설정된 실제 외부 Embedding/LLM Provider와 로컬 Qdrant·MinIO를 사용하는 모든 조건부
-  테스트를 실행했으며 skip 없이 통과함.
+- 없음. 실제 MinIO/Qdrant/Gemini Summary E2E와 해당 E2E를 포함한 전체 회귀를 실행함.
 
 ---
 
 ## 변경 파일
 
-- `.env.example`, `README.md`, `pyproject.toml`
-- `app/core/config.py`
-- `app/models/rag.py`
-- `app/prompts/__init__.py`, `app/prompts/rag.py`
-- `app/services/rag_context.py`, `app/services/rag.py`, `app/rag.py`
-- `scripts/inspect_rag.py`
-- `tests/unit/test_rag.py`, `tests/unit/test_config.py`
-- `tests/integration/rag/__init__.py`, `tests/integration/rag/test_rag_pipeline.py`
-- `tests/integration/rag/test_rag_provider_integration.py`
-- `docs/ARCHITECTURE.md`, `docs/CONTRACTS.md`, `docs/DECISIONS.md`
-- `docs/FILE_STRUCTURE.md`, `docs/PROGRESS.md`, `docs/TESTING.md`
+- `.env.example`, `pyproject.toml`
+- `app/core/config.py`, `app/core/exceptions.py`
+- `app/models/summary.py`
+- `app/prompts/summary.py`
+- `app/services/summary.py`, `app/summary.py`
+- `tests/unit/test_summary.py`, `tests/unit/test_config.py`
+- `tests/integration/summary/__init__.py`, `tests/integration/summary/test_summary_provider_integration.py`
+- `docs/TESTING.md`, `docs/PROGRESS.md`
 
 ---
 
 ## 다음 작업
 
-- Phase 10 필수 범위와 회귀 검증이 완료되어 Phase 11 진행 가능.
-- 운영 Provider/Model을 변경하면 동일한 조건부 전체 회귀를 다시 실행한다.
+- Phase 11 필수 범위와 회귀 검증이 완료되어 Phase 12 진행 가능.
+- 운영 LLM Model을 변경하면 해당 Model의 실제 Context Window를 `LLM_CONTEXT_WINDOW`에 명시한다.
 
 ---
 

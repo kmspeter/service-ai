@@ -37,7 +37,9 @@ class Settings(BaseSettings):
     llm_model: str | None = None
     llm_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
     llm_max_output_tokens: int = Field(default=1024, ge=1, le=100_000)
+    llm_context_window: int | None = Field(default=None, ge=128, le=2_000_000)
     llm_temperature: float | None = Field(default=None, ge=0, le=2)
+    summary_safety_margin_tokens: int = Field(default=256, ge=0, le=100_000)
     embedding_provider: Literal["openai", "huggingface"] = "huggingface"
     embedding_api_key: SecretStr | None = None
     hf_token: SecretStr | None = None
@@ -87,6 +89,12 @@ class Settings(BaseSettings):
     rag_required_settings: ClassVar[tuple[str, ...]] = (
         *retrieval_required_settings,
         *llm_required_settings,
+    )
+    summary_required_settings: ClassVar[tuple[str, ...]] = (
+        *infrastructure_required_settings,
+        "qdrant_collection",
+        *llm_required_settings,
+        "llm_context_window",
     )
 
     @field_validator("chunk_overlap")
@@ -177,6 +185,16 @@ class Settings(BaseSettings):
             all(getattr(self, name, None) for name in self.rag_required_settings)
             and self.has_embedding_settings()
         )
+
+    def validate_summary_settings(self) -> None:
+        """Validate external boundaries and model budget required by Phase 11."""
+        self.validate_required_settings(
+            self.phase_required_settings + self.summary_required_settings
+        )
+
+    def has_summary_settings(self) -> bool:
+        """Return whether the document summary service can be constructed."""
+        return all(getattr(self, name, None) for name in self.summary_required_settings)
 
 
 @lru_cache
