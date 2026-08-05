@@ -28,6 +28,15 @@ class VectorPoint:
     payload: Mapping[str, Any]
 
 
+@dataclass(frozen=True, slots=True)
+class VectorSearchHit:
+    """SDK-independent scored point returned by dense vector search."""
+
+    point_id: str
+    score: float
+    payload: Mapping[str, Any]
+
+
 class QdrantRepository(Protocol):
     """Boundary used by application code instead of the Qdrant SDK."""
 
@@ -69,6 +78,17 @@ class QdrantRepository(Protocol):
         user_id: str,
         document_id: str,
     ) -> Mapping[str, Any] | None: ...
+
+    async def search_points(
+        self,
+        collection_name: str,
+        *,
+        query_vector: EmbeddingVector,
+        user_id: str,
+        document_ids: tuple[str, ...],
+        limit: int,
+        score_threshold: float,
+    ) -> tuple[VectorSearchHit, ...]: ...
 
     async def delete_collection(self, collection_name: str) -> None: ...
 

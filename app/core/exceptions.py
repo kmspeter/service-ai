@@ -187,6 +187,19 @@ class EmbeddingInputError(ApplicationValidationError):
     public_message = "The embedding input is invalid."
 
 
+class RetrievalInputError(ApplicationValidationError):
+    code = "RETRIEVAL_INPUT_INVALID"
+    public_message = "The retrieval input is invalid."
+
+
+class RetrievalResultError(ExternalServiceError):
+    code = "QDRANT_INVALID_RESPONSE"
+    public_message = "The vector database returned invalid retrieval metadata."
+
+    def __init__(self) -> None:
+        super().__init__("qdrant")
+
+
 class UnknownEmbeddingModelError(ApplicationValidationError):
     code = "UNKNOWN_EMBEDDING_MODEL"
     public_message = "The configured embedding model is not supported."

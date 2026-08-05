@@ -547,6 +547,46 @@ $env:RUN_INGESTION_INTEGRATION_TESTS='1'
 - document_id/document_ids Filter
 - Result Metadata
 
+Phase 09 Unit/Adapter Test:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest `
+  tests\unit\test_retrieval.py `
+  tests\unit\adapters\test_qdrant_adapter.py `
+  tests\unit\test_config.py -q
+```
+
+실제 Qdrant에서 비용 없는 결정적 Vector로 Scope/품질/Top-K/Threshold 검증:
+
+```powershell
+$env:RUN_INFRASTRUCTURE_TESTS='1'
+$env:QDRANT_URL='http://127.0.0.1:6333'
+.\.venv\Scripts\python.exe -m pytest `
+  tests\integration\retrieval\test_retrieval_integration.py -q
+```
+
+실제 Embedding Provider와 Qdrant를 연결하는 선택형 품질 검증:
+
+```powershell
+$env:RUN_RETRIEVAL_INTEGRATION_TESTS='1'
+$env:QDRANT_URL='http://127.0.0.1:6333'
+.\.venv\Scripts\python.exe -m pytest `
+  tests\integration\retrieval\test_retrieval_provider_integration.py -q
+```
+
+마지막 테스트는 선택 Provider Credential과 외부 네트워크를 사용하며 API 비용이 발생할 수 있다.
+
+개발 Collection의 결과를 사람이 직접 확인:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.inspect_retrieval `
+  --user-id user-001 `
+  --document-ids doc-001 doc-002 `
+  --query "Qdrant의 장점은 무엇인가?"
+```
+
+출력에는 각 Chunk의 `chunk_id`, `document_id`, `filename`, `page`, `section`, `score`, `content`가 포함된다.
+
 ---
 
 # 14. RAG Test

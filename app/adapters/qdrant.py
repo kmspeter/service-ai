@@ -17,7 +17,13 @@ from app.core.exceptions import (
     ExternalServiceTimeoutError,
     ResourceNotFoundError,
 )
-from app.ports.qdrant import CollectionInfo, VectorDistance, VectorPoint, VectorSize
+from app.ports.qdrant import (
+    CollectionInfo,
+    VectorDistance,
+    VectorPoint,
+    VectorSearchHit,
+    VectorSize,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +188,39 @@ class QdrantAdapter:
             return None
         return dict(points[0].payload)
 
+    async def search_points(
+        self,
+        collection_name: str,
+        *,
+        query_vector: tuple[float, ...],
+        user_id: str,
+        document_ids: tuple[str, ...],
+        limit: int,
+        score_threshold: float,
+    ) -> tuple[VectorSearchHit, ...]:
+        """Run dense search with an unconditional user scope filter."""
+        response = await self._call(
+            self._client.query_points,
+            collection_name=collection_name,
+            query=list(query_vector),
+            query_filter=_retrieval_filter(
+                user_id=user_id,
+                document_ids=document_ids,
+            ),
+            limit=limit,
+            score_threshold=score_threshold,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return tuple(
+            VectorSearchHit(
+                point_id=str(point.id),
+                score=float(point.score),
+                payload=dict(point.payload or {}),
+            )
+            for point in response.points
+        )
+
     async def delete_collection(self, collection_name: str) -> None:
         deleted = await self._call(self._client.delete_collection, collection_name)
         if not deleted:
@@ -244,3 +283,29 @@ def _document_selector(*, user_id: str, document_id: str) -> models.FilterSelect
             ]
         )
     )
+
+
+def _retrieval_filter(
+    *, user_id: str, document_ids: tuple[str, ...]
+) -> models.Filter:
+    conditions: list[models.Condition] = [
+        models.FieldCondition(
+            key="user_id",
+            match=models.MatchValue(value=user_id),
+        )
+    ]
+    if len(document_ids) == 1:
+        conditions.append(
+            models.FieldCondition(
+                key="document_id",
+                match=models.MatchValue(value=document_ids[0]),
+            )
+        )
+    elif document_ids:
+        conditions.append(
+            models.FieldCondition(
+                key="document_id",
+                match=models.MatchAny(any=list(document_ids)),
+            )
+        )
+    return models.Filter(must=conditions)

@@ -43,6 +43,7 @@ markers = [
     "llm: requires RUN_LLM_INTEGRATION_TESTS=1 and may incur cost",
     "embedding: requires RUN_EMBEDDING_INTEGRATION_TESTS=1 and may incur cost",
     "ingestion: requires RUN_INGESTION_INTEGRATION_TESTS=1 and full Phase 07 dependencies",
+    "retrieval: Phase 09 dense retrieval tests against local Qdrant",
 ]
 
 [tool.ruff]

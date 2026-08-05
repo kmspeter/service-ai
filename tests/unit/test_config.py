@@ -101,6 +101,29 @@ def test_chunk_settings_load_from_environment(monkeypatch: pytest.MonkeyPatch) -
     assert settings.embedding_batch_size == 32
 
 
+def test_retrieval_settings_load_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TOP_K", "9")
+    monkeypatch.setenv("SCORE_THRESHOLD", "0.72")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.top_k == 9
+    assert settings.score_threshold == 0.72
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [("TOP_K", "0"), ("TOP_K", "101"), ("SCORE_THRESHOLD", "1.1")],
+)
+def test_invalid_retrieval_setting_is_rejected(
+    monkeypatch: pytest.MonkeyPatch, name: str, value: str
+) -> None:
+    monkeypatch.setenv(name, value)
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
 def test_ingestion_settings_require_full_external_boundary() -> None:
     settings = Settings(
         environment="test",

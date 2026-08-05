@@ -176,6 +176,23 @@ curl.exe "http://localhost:8000/internal/documents/doc-001/status?request_id=req
 삭제는 `user_id + document_id`가 모두 일치하는 Qdrant Vector만 제거한다. Backend Metadata와 MinIO
 원본은 변경하지 않으며, Qdrant 실패는 재처리 가능한 실패 결과로 반환한다.
 
+Agent 없는 Dense Vector Retrieval은 내부 `RetrievalService`로 제공한다. 기본 검색 수와 점수 기준은
+환경설정에서 관리하며 모든 검색에 Backend 검증 `user_id` Filter를 강제한다.
+
+```text
+TOP_K=5
+SCORE_THRESHOLD=0.5
+```
+
+개발 Collection의 검색 결과와 Citation용 Metadata는 CLI로 직접 확인할 수 있다.
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.inspect_retrieval `
+  --user-id user-001 `
+  --document-ids doc-001 doc-002 `
+  --query "Qdrant의 장점은 무엇인가?"
+```
+
 테스트와 정적 검사:
 
 ```powershell

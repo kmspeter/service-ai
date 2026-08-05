@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     chunk_size: int = Field(default=800, ge=1, le=1_000_000)
     chunk_overlap: int = Field(default=100, ge=0, le=999_999)
     embedding_batch_size: int = Field(default=32, ge=1, le=2_048)
+    top_k: int = Field(default=5, ge=1, le=100)
+    score_threshold: float = Field(default=0.5, ge=-1.0, le=1.0)
 
     qdrant_url: AnyHttpUrl | None = None
     qdrant_api_key: SecretStr | None = None
@@ -75,6 +77,10 @@ class Settings(BaseSettings):
     )
     ingestion_required_settings: ClassVar[tuple[str, ...]] = (
         *infrastructure_required_settings,
+        "qdrant_collection",
+    )
+    retrieval_required_settings: ClassVar[tuple[str, ...]] = (
+        "qdrant_url",
         "qdrant_collection",
     )
 
@@ -138,6 +144,19 @@ class Settings(BaseSettings):
         """Return whether the ingestion service can be constructed safely."""
         return all(
             getattr(self, name, None) for name in self.ingestion_required_settings
+        ) and self.has_embedding_settings()
+
+    def validate_retrieval_settings(self) -> None:
+        """Validate settings required by the Phase 09 retrieval service."""
+        self.validate_required_settings(
+            self.phase_required_settings + self.retrieval_required_settings
+        )
+        self.validate_embedding_settings()
+
+    def has_retrieval_settings(self) -> bool:
+        """Return whether dense retrieval can be constructed safely."""
+        return all(
+            getattr(self, name, None) for name in self.retrieval_required_settings
         ) and self.has_embedding_settings()
 
 

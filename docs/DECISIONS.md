@@ -413,3 +413,15 @@ REST Header/DTO와 WebSocket Event에서 가능한 한 동일한 `request_id`를
 Private Network/Internal Credential/mTLS/Gateway 등으로 보호 가능한 구조를 유지한다.
 
 구현 초기 복잡도에 맞는 방식을 선택하되 인터넷에 무제한 노출되는 구조는 피한다.
+
+---
+
+## D031 — Retrieval 기본값은 설정에서 관리하고 내부 요청 Override를 허용한다
+
+**Decision**
+
+`TOP_K`, `SCORE_THRESHOLD`는 설정 계층의 기본값을 사용한다.
+
+내부 Service와 개발 검증은 요청별 Override를 허용하되 설정과 동일한 범위 검증을 적용한다.
+모든 검색은 `user_id`를 필수 Filter로 사용하며 문서 범위가 지정된 경우에만
+`document_id` 또는 `document_ids` Filter를 추가한다.

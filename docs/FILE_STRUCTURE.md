@@ -29,7 +29,8 @@ service-ai/
 │  │  └─ embedding.py            # EmbeddingProvider Protocol과 공통 Result/Usage
 │  ├─ models/
 │  │  ├─ document.py             # Parser/Chunk/DocumentStatistics 내부 모델
-│  │  └─ ingestion.py            # 처리 Context/Result/표준 실패 사유 내부 모델
+│  │  ├─ ingestion.py            # 처리 Context/Result/표준 실패 사유 내부 모델
+│  │  └─ retrieval.py            # Retrieval Request와 Citation-ready Result 내부 모델
 │  ├─ parsers/
 │  │  ├─ base.py                 # 문서 Parser Protocol
 │  │  ├─ encoding.py             # TXT/MD 공통 Unicode Encoding 정책
@@ -41,6 +42,7 @@ service-ai/
 │  │  ├─ chunking.py             # Token 측정과 위치 경계 보존 Recursive Chunking
 │  │  ├─ document_management.py  # Scoped Vector 삭제, 상태 Registry/조회, 문서 작업 Lock
 │  │  ├─ ingestion.py            # 문서 Ingestion 오케스트레이션과 재처리 정책
+│  │  ├─ retrieval.py            # Query Embedding과 scoped Dense Vector Retrieval
 │  │  ├─ llm.py                  # Provider 중립 LLM Application Service
 │  │  └─ embedding.py            # 단일/Batch Embedding과 Qdrant Dimension 정책
 │  ├─ schemas/
@@ -52,9 +54,11 @@ service-ai/
 │  ├─ llm.py                    # 설정 기반 LLM Provider 조립
 │  ├─ embedding.py              # 설정 기반 Embedding Provider 조립
 │  ├─ ingestion.py              # 설정 기반 Ingestion Service 조립
+│  ├─ retrieval.py              # 설정 기반 Retrieval Service 조립
 │  └─ main.py                   # FastAPI application factory
 ├─ scripts/
 │  ├─ inspect_chunking.py        # Parser → Chunking 개발 확인 CLI
+│  ├─ inspect_retrieval.py       # 사용자/문서 범위 Retrieval 결과 확인 CLI
 │  └─ test_llm.py               # Agent/RAG와 무관한 실제 LLM 호출 CLI
 ├─ tests/
 │  ├─ fixtures/documents/        # 비민감 TXT/MD/PDF Parser Fixture
@@ -64,6 +68,7 @@ service-ai/
 │  ├─ integration/qdrant/       # 실제 Qdrant 및 Embedding Dimension Integration Test
 │  ├─ integration/embedding/    # 실제 Embedding Provider Integration Test
 │  ├─ integration/ingestion/    # 실제 MinIO/Qdrant/Embedding Pipeline Test
+│  ├─ integration/retrieval/    # 실제 Qdrant 및 선택형 Embedding Retrieval Test
 │  ├─ integration/minio/        # 실제 MinIO Integration Test
 │  ├─ integration/              # FastAPI endpoint/error Integration Test
 │  ├─ unit/                     # application/config/logging Unit Test
@@ -111,5 +116,8 @@ External SDK / Qdrant / MinIO
 - 같은 `document_id` 재처리는 기존 Point를 교체하며 저장 실패 시 잔여 신규 Point 정리를 시도한다.
 - Ingestion 교체와 삭제는 같은 `user_id + document_id` 작업 Lock을 공유한다.
 - Qdrant 문서 교체·삭제·상태 조회는 `user_id + document_id` Filter를 모두 사용한다.
+- Qdrant Retrieval은 문서 범위 유무와 무관하게 `user_id` Filter를 항상 사용한다.
+- 문서 범위가 있으면 단일 `document_id` 또는 복수 `document_ids` Filter를 추가한다.
+- Retrieval Result는 Phase 10 Citation에 필요한 Chunk 본문과 위치 Metadata를 보존한다.
 - 처리 중/최근 실패 상태는 process-local Registry에만 두고 완료 상태는 Qdrant payload에서 복원한다.
 - 문서 삭제는 Qdrant Vector만 대상으로 하며 Backend Metadata와 MinIO 원본을 변경하지 않는다.

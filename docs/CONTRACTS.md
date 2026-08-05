@@ -256,6 +256,14 @@ Payload 최소 필드:
 
 실제 `top_k`와 `score_threshold`는 기본적으로 환경설정을 사용하며 필요 시 명시적으로 Override 가능한지 구현 정책에서 정한다.
 
+Phase 09 구현 정책:
+
+- 기본값은 설정 계층의 `TOP_K`, `SCORE_THRESHOLD`를 사용한다.
+- 내부 Service/개발 검증에서는 요청별 `top_k`, `score_threshold` Override를 허용한다.
+- 문서 범위는 `document_id` 또는 `document_ids` 중 하나만 지정한다. 둘 다 없으면 사용자의 전체 문서 범위다.
+- `user_id`는 문서 범위 지정 여부와 무관하게 모든 Qdrant 검색에 필수 Filter로 적용한다.
+- `document_ids`의 중복 값은 검색 전에 제거한다.
+
 ---
 
 # 10. Retrieval Result
