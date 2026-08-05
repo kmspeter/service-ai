@@ -31,7 +31,7 @@ VERIFIED
 | 01 | Project Skeleton | VERIFIED | Unit/Integration 10 tests + curl 검증 통과 |
 | 02 | Infrastructure Clients | VERIFIED | Docker Compose + 22 tests + `/ready` 검증 통과 |
 | 03 | LLM Provider Abstraction | VERIFIED | OpenAI/Ollama/Gemini Unit·Regression + Ollama/Gemini 실제 검증 통과 |
-| 04 | Embedding Provider | NOT_STARTED | - |
+| 04 | Embedding Provider | VERIFIED | OpenAI Embedding Unit·Regression + 실제 Qdrant Dimension 검증 통과 |
 | 05 | Parser Layer | NOT_STARTED | - |
 | 06 | Token Measurement & Recursive Chunking | NOT_STARTED | - |
 | 07 | Document Ingestion Pipeline | NOT_STARTED | - |
@@ -54,7 +54,7 @@ VERIFIED
 ## 현재 Phase
 
 ```text
-Phase: 03
+Phase: 04
 Status: VERIFIED
 ```
 
@@ -62,55 +62,41 @@ Status: VERIFIED
 
 ## 구현 완료
 
-- SDK 독립 `LLMRequest`, `LLMResult`, `LLMUsage`, `LLMProvider` Port
-- Provider 중립 `LLMService`와 설정 기반 Provider Factory
-- OpenAI Responses API Adapter와 Adapter 외부 SDK 타입 비노출
-- Ollama Cloud Native Chat API Adapter와 `glm-5.2` 설정 지원
-- Google Gemini Interactions API Adapter와 `gemini-3.6-flash` 지원
-- `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL` 설정 및 Timeout/Max Output Tokens/Temperature 설정
-- Provider 응답의 input/output/total/cached input/reasoning token을 공통 Usage로 직접 매핑
-- Provider가 반환하지 않는 Usage 값은 추정하지 않고 `None`으로 유지
-- `perf_counter` 기반 LLM Call latency 측정
-- Authentication, Authorization, Rate Limit, Timeout, Connection, Provider 5xx, Invalid Response, Unknown Provider 오류 표준화
-- OpenAI SDK 자동 Retry 비활성화 및 Phase 03 별도 Retry 미적용
-- Ollama HTTP 호출 별도 Retry 미적용
-- Gemini HTTP 호출 별도 Retry 미적용
-- Agent/RAG와 무관한 `python -m scripts.test_llm` 개발용 CLI
-- Credential이 있을 때만 실제 호출하는 독립 LLM Integration Test
+- SDK 독립 `EmbeddingProvider`, `EmbeddingResult`, `EmbeddingBatchResult`, `EmbeddingUsage` Port
+- Provider 중립 `EmbeddingService`와 설정 기반 OpenAI Embedding Adapter 조립
+- 단일 문자열 및 여러 문자열 Batch Embedding
+- `EMBEDDING_API_KEY`, `EMBEDDING_MODEL`, `EMBEDDING_TIMEOUT_SECONDS` 독립 설정
+- LLM Client/Key와 Embedding Client/Key의 책임 및 lifecycle 분리
+- 기본 모델 `text-embedding-3-small`의 실제 기본 Dimension 1536 적용
+- 반환 Vector 개수, index, 유한 숫자, 모든 Vector의 1536 Dimension 검증
+- OpenAI `prompt_tokens`, `total_tokens` Usage와 `perf_counter` 기반 latency 수집
+- Authentication, Authorization, Rate Limit, Timeout, Connection, Provider 5xx, Invalid Response 오류 표준화
+- OpenAI SDK 자동 Retry 비활성화 및 Phase 04 별도 Retry 미적용
+- 빈 단일/Batch 입력을 Provider 호출 전에 명시적으로 거부
+- Qdrant Collection이 없을 때 명시적 초기화 호출로 Cosine/1536 Collection 생성
+- 기존 Qdrant Collection Dimension이 다르면 자동 삭제/재생성 없이 `QDRANT_VECTOR_DIMENSION_MISMATCH` 발생
+- Credential이 있을 때만 실제 호출하는 독립 Embedding Integration Test
+- Parsing/Chunking, Qdrant Point 저장, Retrieval과 연결하지 않음
 
 ---
 
 ## 검증
 
-- Phase 01~02 문서 상태 확인: 두 Phase 모두 `VERIFIED`
+- Phase 03 문서 상태 확인: `VERIFIED`
+- Command: Phase 03 핵심 Unit Test 재실행
+  - Result: PASS (`53 passed`)
+- Command: `.\.venv\Scripts\python.exe -m pytest tests/unit/adapters/test_openai_embedding_adapter.py tests/unit/test_embedding.py tests/unit/test_config.py -q`
+  - Result: PASS (`33 passed`)
+- Command: `.\.venv\Scripts\python.exe -m pytest tests/unit -q`
+  - Result: PASS (`95 passed`)
+- Command: `.\.venv\Scripts\python.exe -m pytest -q`
+  - Result: PASS (`101 passed, 8 skipped`; 실제 Infrastructure/LLM/Embedding Test만 조건부 skip)
+- Command: `RUN_INFRASTRUCTURE_TESTS=1`, `QDRANT_URL=http://127.0.0.1:6333`로 `.\.venv\Scripts\python.exe -m pytest tests/integration/qdrant -q`
+  - Result: PASS (`4 passed`; 1536 Collection 생성 및 잘못된 4 Dimension Collection 거부/보존 확인)
+- Command: `.\.venv\Scripts\python.exe -m pytest tests/integration/embedding -q`
+  - Result: SKIP (`1 skipped`; OpenAI Embedding Credential 미설정으로 비용 방지)
 - Command: `.\.venv\Scripts\python.exe -m ruff check .`
   - Result: PASS
-- Command: `.\.venv\Scripts\python.exe -m pytest tests/unit -q`
-  - Result: PASS (`66 passed`)
-- Command: `.\.venv\Scripts\python.exe -m pytest tests/integration/llm -q`
-  - Result: SKIP (`1 skipped`; `RUN_LLM_INTEGRATION_TESTS` 미설정 시 비용 방지)
-- Command: `.\.venv\Scripts\python.exe -m pytest -q`
-  - Result: PASS (`72 passed, 5 skipped`; 실제 Infrastructure/LLM Test만 조건부 skip)
-- Command: Ollama Credential로 `GET https://ollama.com/api/tags`
-  - Result: PASS (`HTTP 200`, `glm-5.2` 모델 확인, API Key 인증 확인)
-- Command: `RUN_LLM_INTEGRATION_TESTS=1`로 Ollama `glm-5.2` 실제 생성 호출
-  - Result: BLOCKED (`HTTP 403`; 해당 모델은 Ollama 구독 권한 필요)
-- Command: Ollama CLI 모델명 `qwen3.5:397b-cloud`를 직접 Cloud API 모델명으로 확인
-  - Result: PASS (`/api/tags`에서 `qwen3.5:397b` 식별자 확인)
-- Command: `RUN_LLM_INTEGRATION_TESTS=1`로 Ollama `qwen3.5:397b` 실제 생성 호출
-  - Result: BLOCKED (`HTTP 403`; 해당 모델도 Ollama 구독 권한 필요)
-- Command: Ollama CLI 모델명 `gpt-oss:20b-cloud`를 직접 Cloud API 모델명으로 확인
-  - Result: PASS (`/api/tags`에서 `gpt-oss:20b` 식별자 확인)
-- Command: `RUN_LLM_INTEGRATION_TESTS=1`로 Ollama `gpt-oss:20b` 실제 생성 호출
-  - Result: PASS (`1 passed`; Content/Provider/Model/Usage/Latency/Status 확인)
-- Command: `.\.venv\Scripts\python.exe -m scripts.test_llm`
-  - Result: PASS (`input_tokens=80`, `output_tokens=107`, `latency_ms=1794`, `status=COMPLETED`)
-- Command: Gemini Credential로 `GET /v1beta/models`
-  - Result: PASS (`HTTP 200`, `gemini-3.6-flash` 사용 가능 확인)
-- Command: `RUN_LLM_INTEGRATION_TESTS=1`로 Gemini `gemini-3.6-flash` 실제 생성 호출
-  - Result: PASS (`1 passed`; Content/Provider/Model/Usage/Latency/Status 확인)
-- Command: Gemini 설정으로 `.\.venv\Scripts\python.exe -m scripts.test_llm`
-  - Result: PASS (`input=14`, `output=8`, `total=256`, `reasoning=234`, `latency_ms=4367`)
 - Command: `git diff --check`
   - Result: PASS
 
@@ -124,12 +110,9 @@ Status: VERIFIED
 
 ## 미검증 항목
 
-- 실제 OpenAI Provider 호출은 Credential 미제공으로 미검증이며 Mock 검증만 완료.
-- Ollama `glm-5.2`와 `qwen3.5:397b`는 구독 권한 부족으로 생성 미검증.
-- Ollama `gpt-oss:20b` 실제 Content, input/output Token Usage, Latency 검증 완료.
-- Ollama가 반환하지 않는 total/cached/reasoning Token은 실제 응답에서도 `null`로 확인.
-- Gemini `gemini-3.6-flash` 실제 Content와 전체 Token Usage, Latency 검증 완료.
-- Agent, Tool Calling, RAG, Query Rewrite, Summary, Conversation Summary는 Phase 03 제외 범위로 구현하지 않음.
+- 실제 OpenAI Embedding 호출은 `EMBEDDING_API_KEY` 미제공으로 미검증이며 Mock 검증만 완료.
+- 실제 Qdrant Collection Dimension 생성/불일치 정책은 로컬 Qdrant에서 검증 완료.
+- Parsing/Chunking 연결, Qdrant Point 저장, Retrieval은 Phase 04 제외 범위로 구현하지 않음.
 
 ---
 
@@ -139,22 +122,16 @@ Status: VERIFIED
 - `pyproject.toml`
 - `app/core/config.py`
 - `app/core/exceptions.py`
-- `app/adapters/openai.py`
-- `app/adapters/ollama.py`
-- `app/adapters/gemini.py`
-- `app/llm.py`
-- `app/ports/llm.py`
-- `app/services/__init__.py`
-- `app/services/llm.py`
-- `scripts/__init__.py`
-- `scripts/test_llm.py`
+- `app/adapters/openai_embedding.py`
+- `app/embedding.py`
+- `app/ports/embedding.py`
+- `app/services/embedding.py`
 - `tests/unit/test_config.py`
-- `tests/unit/test_llm.py`
-- `tests/unit/adapters/test_openai_adapter.py`
-- `tests/unit/adapters/test_ollama_adapter.py`
-- `tests/unit/adapters/test_gemini_adapter.py`
-- `tests/integration/llm/__init__.py`
-- `tests/integration/llm/test_llm_integration.py`
+- `tests/unit/test_embedding.py`
+- `tests/unit/adapters/test_openai_embedding_adapter.py`
+- `tests/integration/embedding/__init__.py`
+- `tests/integration/embedding/test_embedding_integration.py`
+- `tests/integration/qdrant/test_qdrant_integration.py`
 - `docs/FILE_STRUCTURE.md`
 - `docs/TESTING.md`
 - `docs/PROGRESS.md`
@@ -163,8 +140,8 @@ Status: VERIFIED
 
 ## 다음 작업
 
-- Phase 03 실제 Provider 응답과 Token Usage 검증 완료.
-- `Phase 04 — Embedding Provider` 진행 가능.
+- Phase 04 Embedding Provider와 Qdrant Dimension 검증 완료.
+- `Phase 05 — Parser Layer` 진행 가능.
 
 ---
 

@@ -37,6 +37,7 @@ filterwarnings = [
 markers = [
     "infrastructure: requires local Qdrant and MinIO services",
     "llm: requires RUN_LLM_INTEGRATION_TESTS=1 and may incur cost",
+    "embedding: requires RUN_EMBEDDING_INTEGRATION_TESTS=1 and may incur cost",
 ]
 
 [tool.ruff]

@@ -131,6 +131,88 @@ class UnknownLLMProviderError(ApplicationError):
         super().__init__()
 
 
+class EmbeddingError(ApplicationError):
+    """Base class for standardized embedding provider failures."""
+
+    status_code = 502
+    code = "EMBEDDING_PROVIDER_ERROR"
+    public_message = "The embedding provider request failed."
+
+    def __init__(self, provider: str) -> None:
+        self.provider = provider
+        super().__init__()
+
+
+class EmbeddingAuthenticationError(EmbeddingError):
+    code = "EMBEDDING_AUTHENTICATION_FAILED"
+    public_message = "The embedding provider could not be authenticated."
+
+
+class EmbeddingAuthorizationError(EmbeddingError):
+    status_code = 403
+    code = "EMBEDDING_AUTHORIZATION_FAILED"
+    public_message = "The embedding provider request is not authorized."
+
+
+class EmbeddingRateLimitError(EmbeddingError):
+    status_code = 429
+    code = "EMBEDDING_RATE_LIMITED"
+    public_message = "The embedding provider rate limit was exceeded."
+
+
+class EmbeddingTimeoutError(EmbeddingError):
+    status_code = 504
+    code = "EMBEDDING_TIMEOUT"
+    public_message = "The embedding provider request timed out."
+
+
+class EmbeddingConnectionError(EmbeddingError):
+    status_code = 503
+    code = "EMBEDDING_CONNECTION_FAILED"
+    public_message = "The embedding provider is unavailable."
+
+
+class EmbeddingProviderServerError(EmbeddingError):
+    code = "EMBEDDING_PROVIDER_SERVER_ERROR"
+    public_message = "The embedding provider is temporarily unavailable."
+
+
+class EmbeddingInvalidResponseError(EmbeddingError):
+    code = "EMBEDDING_INVALID_RESPONSE"
+    public_message = "The embedding provider returned an invalid response."
+
+
+class EmbeddingInputError(ApplicationValidationError):
+    code = "EMBEDDING_INPUT_INVALID"
+    public_message = "The embedding input is invalid."
+
+
+class UnknownEmbeddingModelError(ApplicationValidationError):
+    code = "UNKNOWN_EMBEDDING_MODEL"
+    public_message = "The configured embedding model is not supported."
+
+    def __init__(self, model: str) -> None:
+        self.model = model
+        super().__init__()
+
+
+class QdrantVectorDimensionMismatchError(ApplicationError):
+    code = "QDRANT_VECTOR_DIMENSION_MISMATCH"
+    public_message = "The Qdrant collection vector dimension is incompatible."
+
+    def __init__(
+        self,
+        *,
+        collection_name: str,
+        expected_dimension: int,
+        actual_dimension: object,
+    ) -> None:
+        self.collection_name = collection_name
+        self.expected_dimension = expected_dimension
+        self.actual_dimension = actual_dimension
+        super().__init__()
+
+
 class InternalApplicationError(ApplicationError):
     pass
 

@@ -50,3 +50,17 @@ def test_llm_settings_load_and_validate(monkeypatch: pytest.MonkeyPatch) -> None
     assert settings.llm_max_output_tokens == 321
     assert settings.llm_temperature == 0.3
 
+
+def test_embedding_settings_load_and_validate(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("EMBEDDING_API_KEY", "embedding-secret")
+    monkeypatch.setenv("EMBEDDING_MODEL", "text-embedding-3-small")
+    monkeypatch.setenv("EMBEDDING_TIMEOUT_SECONDS", "8.5")
+
+    settings = Settings(environment="test", _env_file=None)
+    settings.validate_embedding_settings()
+
+    assert settings.embedding_api_key is not None
+    assert settings.embedding_api_key.get_secret_value() == "embedding-secret"
+    assert settings.embedding_model == "text-embedding-3-small"
+    assert settings.embedding_timeout_seconds == 8.5
+

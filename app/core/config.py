@@ -38,7 +38,9 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
     llm_max_output_tokens: int = Field(default=1024, ge=1, le=100_000)
     llm_temperature: float | None = Field(default=None, ge=0, le=2)
+    embedding_api_key: SecretStr | None = None
     embedding_model: str | None = None
+    embedding_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
 
     qdrant_url: AnyHttpUrl | None = None
     qdrant_api_key: SecretStr | None = None
@@ -64,6 +66,10 @@ class Settings(BaseSettings):
         "llm_api_key",
         "llm_model",
     )
+    embedding_required_settings: ClassVar[tuple[str, ...]] = (
+        "embedding_api_key",
+        "embedding_model",
+    )
 
     def validate_required_settings(self, names: tuple[str, ...] | None = None) -> None:
         """Validate settings required by a phase without exposing their values."""
@@ -85,6 +91,12 @@ class Settings(BaseSettings):
     def validate_llm_settings(self) -> None:
         """Validate settings required by the Phase 03 LLM provider."""
         self.validate_required_settings(self.phase_required_settings + self.llm_required_settings)
+
+    def validate_embedding_settings(self) -> None:
+        """Validate settings required by the Phase 04 embedding provider."""
+        self.validate_required_settings(
+            self.phase_required_settings + self.embedding_required_settings
+        )
 
 
 @lru_cache

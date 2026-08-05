@@ -279,6 +279,7 @@ Temperature를 해당 모델의 요청에 전달하지 않는다.
 - 빈 입력
 - Provider 오류
 - Timeout
+- Provider Usage와 Latency
 
 필수:
 
@@ -286,6 +287,42 @@ Temperature를 해당 모델의 요청에 전달하지 않는다.
 Embedding Dimension
 ==
 Qdrant Collection Vector Dimension
+```
+
+Phase 04 Unit Test:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/unit/adapters/test_openai_embedding_adapter.py tests/unit/test_embedding.py tests/unit/test_config.py -q
+```
+
+실제 OpenAI Embedding 호출은 다음 설정이 모두 있을 때만 실행한다.
+
+```text
+RUN_EMBEDDING_INTEGRATION_TESTS=1
+EMBEDDING_API_KEY
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_TIMEOUT_SECONDS=30
+```
+
+```powershell
+$env:RUN_EMBEDDING_INTEGRATION_TESTS="1"
+.\.venv\Scripts\python.exe -m pytest tests/integration/embedding -q
+```
+
+`text-embedding-3-small`의 기본 Vector Dimension은 1536이다. Adapter는 반환된 모든 Vector가
+설정 모델의 Dimension과 일치하는지 검증한다. OpenAI가 제공하는 `prompt_tokens`와
+`total_tokens`는 공통 Embedding Usage로 수집하고, 제공되지 않은 값은 추정하지 않는다.
+
+Qdrant Collection은 명시적인 `EmbeddingService.ensure_qdrant_collection` 호출에서만 생성한다.
+Collection이 없으면 Cosine/1536으로 생성하고, 기존 Collection의 Dimension이 다르면 삭제하거나
+재생성하지 않고 `QDRANT_VECTOR_DIMENSION_MISMATCH` 오류를 발생시킨다.
+
+실제 Qdrant Dimension Integration Test:
+
+```powershell
+$env:RUN_INFRASTRUCTURE_TESTS="1"
+$env:QDRANT_URL="http://127.0.0.1:6333"
+.\.venv\Scripts\python.exe -m pytest tests/integration/qdrant -q
 ```
 
 ---
