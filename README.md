@@ -114,6 +114,22 @@ Backend가 필요한 경계는 실제 Backend 계약을 침범하지 않는 개�
 
 ---
 
+## Embedding Provider
+
+현재 기본 Embedding Provider는 Hugging Face 공용 Inference API의
+`unsloth/Qwen3-Embedding-0.6B`이며 Vector Dimension은 1024다.
+
+```text
+EMBEDDING_PROVIDER=huggingface
+HF_TOKEN=<로컬 환경에만 설정>
+EMBEDDING_MODEL=unsloth/Qwen3-Embedding-0.6B
+```
+
+토큰은 Inference Providers 권한이 있는 새 토큰을 사용하고 저장소나 로그에 기록하지 않는다.
+기존 OpenAI Adapter도 `EMBEDDING_PROVIDER=openai` 선택지로 유지한다.
+
+---
+
 ## 개발 시작 전
 
 1. `.env.example` 기준 개발 환경값 준비
@@ -138,6 +154,17 @@ docker compose up -d
 curl.exe http://localhost:8000/health
 curl.exe http://localhost:8000/ready
 ```
+
+문서 처리 요청은 Backend 전용 Internal Endpoint로만 제공한다.
+
+```powershell
+curl.exe -X POST http://localhost:8000/internal/documents `
+  -H "Content-Type: application/json" `
+  -d '{"request_id":"req-001","user_id":"user-123","document_id":"doc-001","storage_key":"documents/doc-001/source.pdf"}'
+```
+
+처리 성공은 `COMPLETED`, 단계별 실패는 `FAILED`와 표준 `failure_reason`으로 반환한다.
+`user_id`는 일반 사용자 입력이 아니라 Backend가 검증해 전달한 실행 Context여야 한다.
 
 테스트와 정적 검사:
 

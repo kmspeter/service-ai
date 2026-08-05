@@ -21,7 +21,10 @@ def test_invalid_setting_is_rejected() -> None:
         Settings(port=0, _env_file=None)
 
 
-def test_missing_phase_required_setting_is_reported_without_value() -> None:
+def test_missing_phase_required_setting_is_reported_without_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
     settings = Settings(environment="test", _env_file=None)
 
     with pytest.raises(SettingsConfigurationError) as exc_info:
@@ -52,6 +55,7 @@ def test_llm_settings_load_and_validate(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_embedding_settings_load_and_validate(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "openai")
     monkeypatch.setenv("EMBEDDING_API_KEY", "embedding-secret")
     monkeypatch.setenv("EMBEDDING_MODEL", "text-embedding-3-small")
     monkeypatch.setenv("EMBEDDING_TIMEOUT_SECONDS", "8.5")
@@ -65,11 +69,28 @@ def test_embedding_settings_load_and_validate(monkeypatch: pytest.MonkeyPatch) -
     assert settings.embedding_timeout_seconds == 8.5
 
 
+def test_huggingface_embedding_settings_load_and_validate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "huggingface")
+    monkeypatch.setenv("HF_TOKEN", "hf-test-secret")
+    monkeypatch.setenv("EMBEDDING_MODEL", "unsloth/Qwen3-Embedding-0.6B")
+
+    settings = Settings(environment="test", _env_file=None)
+    settings.validate_embedding_settings()
+
+    assert settings.embedding_provider == "huggingface"
+    assert settings.hf_token is not None
+    assert settings.hf_token.get_secret_value() == "hf-test-secret"
+    assert settings.has_embedding_settings()
+
+
 def test_chunk_settings_load_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TOKENIZER_MODEL", "text-embedding-3-small")
     monkeypatch.setenv("TOKENIZER_ENCODING", "cl100k_base")
     monkeypatch.setenv("CHUNK_SIZE", "64")
     monkeypatch.setenv("CHUNK_OVERLAP", "8")
+    monkeypatch.setenv("EMBEDDING_BATCH_SIZE", "32")
 
     settings = Settings(_env_file=None)
 
@@ -77,6 +98,44 @@ def test_chunk_settings_load_from_environment(monkeypatch: pytest.MonkeyPatch) -
     assert settings.tokenizer_encoding == "cl100k_base"
     assert settings.chunk_size == 64
     assert settings.chunk_overlap == 8
+    assert settings.embedding_batch_size == 32
+
+
+def test_ingestion_settings_require_full_external_boundary() -> None:
+    settings = Settings(
+        environment="test",
+        qdrant_url="http://qdrant.test:6333",
+        qdrant_collection="documents",
+        minio_url="http://minio.test:9000",
+        minio_access_key="test-access",
+        minio_secret_key="test-secret",
+        minio_bucket="documents",
+        embedding_provider="huggingface",
+        hf_token="hf-test-secret",
+        embedding_model="unsloth/Qwen3-Embedding-0.6B",
+        _env_file=None,
+    )
+
+    settings.validate_ingestion_settings()
+
+    assert settings.has_ingestion_settings()
+
+
+def test_huggingface_embedding_settings_report_missing_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    settings = Settings(
+        environment="test",
+        embedding_provider="huggingface",
+        embedding_model="unsloth/Qwen3-Embedding-0.6B",
+        _env_file=None,
+    )
+
+    with pytest.raises(SettingsConfigurationError) as exc_info:
+        settings.validate_embedding_settings()
+
+    assert exc_info.value.missing_fields == ("hf_token",)
 
 
 def test_chunk_overlap_must_be_smaller_than_chunk_size() -> None:

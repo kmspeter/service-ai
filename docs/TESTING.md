@@ -292,15 +292,16 @@ Qdrant Collection Vector Dimension
 Phase 04 Unit Test:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/unit/adapters/test_openai_embedding_adapter.py tests/unit/test_embedding.py tests/unit/test_config.py -q
+.\.venv\Scripts\python.exe -m pytest tests/unit/adapters/test_huggingface_embedding_adapter.py tests/unit/adapters/test_openai_embedding_adapter.py tests/unit/test_embedding.py tests/unit/test_config.py -q
 ```
 
-실제 OpenAI Embedding 호출은 다음 설정이 모두 있을 때만 실행한다.
+기본 Provider인 Hugging Face 공용 Embedding 호출은 다음 설정이 모두 있을 때만 실행한다.
 
 ```text
 RUN_EMBEDDING_INTEGRATION_TESTS=1
-EMBEDDING_API_KEY
-EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_PROVIDER=huggingface
+HF_TOKEN
+EMBEDDING_MODEL=unsloth/Qwen3-Embedding-0.6B
 EMBEDDING_TIMEOUT_SECONDS=30
 ```
 
@@ -309,13 +310,18 @@ $env:RUN_EMBEDDING_INTEGRATION_TESTS="1"
 .\.venv\Scripts\python.exe -m pytest tests/integration/embedding -q
 ```
 
-`text-embedding-3-small`의 기본 Vector Dimension은 1536이다. Adapter는 반환된 모든 Vector가
-설정 모델의 Dimension과 일치하는지 검증한다. OpenAI가 제공하는 `prompt_tokens`와
-`total_tokens`는 공통 Embedding Usage로 수집하고, 제공되지 않은 값은 추정하지 않는다.
+`unsloth/Qwen3-Embedding-0.6B`의 기본 Vector Dimension은 1024다. Hugging Face Adapter는
+`hf-inference` Feature Extraction을 Batch로 호출하고, 정규화와 오른쪽 Truncation을 요청하며,
+반환된 모든 Vector의 개수·Dimension·유한값을 검증한다. 공용 API가 Token Usage를 제공하지
+않으면 `embedding_token_count`를 추정하지 않고 `null`로 유지한다.
+
+OpenAI 회귀 경로는 `EMBEDDING_PROVIDER=openai`, `EMBEDDING_API_KEY`, 지원 모델 설정으로
+별도 검증할 수 있다.
 
 Qdrant Collection은 명시적인 `EmbeddingService.ensure_qdrant_collection` 호출에서만 생성한다.
-Collection이 없으면 Cosine/1536으로 생성하고, 기존 Collection의 Dimension이 다르면 삭제하거나
+Collection이 없으면 Cosine/Provider Dimension으로 생성하고, 기존 Collection의 Dimension이 다르면 삭제하거나
 재생성하지 않고 `QDRANT_VECTOR_DIMENSION_MISMATCH` 오류를 발생시킨다.
+기존 1536차원 OpenAI Collection에서 전환할 때는 별도 1024차원 Collection 이름을 사용한다.
 
 실제 Qdrant Dimension Integration Test:
 
@@ -417,12 +423,12 @@ Phase 06 Unit Test:
 
 # 12. Document Ingestion Test
 
-수동 검증 예:
+요청 실행 예:
 
-```bash
-curl -X POST http://localhost:8000/internal/documents \
-  -H "Content-Type: application/json" \
-  -d @request.json
+```powershell
+curl.exe -X POST http://localhost:8000/internal/documents `
+  -H "Content-Type: application/json" `
+  -d '@request.json'
 ```
 
 검증 흐름:
@@ -457,6 +463,44 @@ Qdrant
 - 암호화 PDF
 - Embedding 실패
 - Qdrant 실패
+
+정책:
+
+- MinIO Object를 읽은 뒤 `storage_key`의 filename으로 Parser Registry를 조회한다.
+- 파싱 결과가 비어 있거나 공백뿐이면 `FAILED / DOCUMENT_EMPTY`이며 Embedding과 Qdrant 저장을 실행하지 않는다.
+- 모든 Embedding Batch가 성공한 뒤에만 Qdrant 교체를 시작한다.
+- 재처리의 Parsing/Embedding 실패 시에는 이전 완료 Point 집합을 그대로 유지한다.
+- 새 Embedding 전체가 준비되면 `document_id` 범위 기존 Point를 제거하고 전체 신규 Point를 저장한다.
+- Qdrant 신규 Point 저장이 실패하면 같은 `document_id`의 잔여 Point 정리를 시도하며 성공으로 응답하지 않는다.
+- 같은 `document_id`의 동시 처리는 직렬화한다.
+
+Unit/API Regression:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest `
+  tests\unit\test_ingestion.py `
+  tests\unit\adapters\test_qdrant_adapter.py `
+  tests\integration\test_document_ingestion_api.py -q
+```
+
+실제 MinIO/Qdrant + 비용 없는 결정적 Integration Embedding Provider:
+
+```powershell
+$env:RUN_INFRASTRUCTURE_TESTS='1'
+.\.venv\Scripts\python.exe -m pytest `
+  tests\integration\ingestion\test_local_infrastructure_pipeline.py -q
+```
+
+실제 외부 Embedding Provider까지 포함한 TXT/MD/PDF Endpoint 및 Qdrant Payload 검증:
+
+```powershell
+$env:RUN_INGESTION_INTEGRATION_TESTS='1'
+.\.venv\Scripts\python.exe -m pytest `
+  tests\integration\ingestion\test_ingestion_integration.py -q
+```
+
+마지막 테스트는 `QDRANT_*`, `MINIO_*`, 선택 Provider의 Credential, `EMBEDDING_MODEL` 설정과
+실행 중인 Infrastructure가 필요하며 외부 API 비용이 발생할 수 있다.
 
 ---
 

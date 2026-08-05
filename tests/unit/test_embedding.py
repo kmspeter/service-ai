@@ -150,6 +150,7 @@ def test_incompatible_qdrant_collection_dimension_is_explicit_error(
 def test_configured_openai_model_dimension_is_known() -> None:
     settings = Settings(
         environment="test",
+        embedding_provider="openai",
         embedding_api_key="test-secret",
         embedding_model="text-embedding-3-small",
         _env_file=None,
@@ -161,9 +162,25 @@ def test_configured_openai_model_dimension_is_known() -> None:
     asyncio.run(service.close())
 
 
+def test_configured_huggingface_qwen_model_dimension_is_known() -> None:
+    settings = Settings(
+        environment="test",
+        embedding_provider="huggingface",
+        hf_token="test-secret",
+        embedding_model="unsloth/Qwen3-Embedding-0.6B",
+        _env_file=None,
+    )
+
+    service = create_embedding_service(settings)
+
+    assert service.dimension == 1024
+    asyncio.run(service.close())
+
+
 def test_unknown_embedding_model_is_rejected() -> None:
     settings = Settings(
         environment="test",
+        embedding_provider="openai",
         embedding_api_key="test-secret",
         embedding_model="unknown-model",
         _env_file=None,

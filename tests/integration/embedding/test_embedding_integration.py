@@ -24,8 +24,12 @@ def test_real_embedding_vector_dimension_usage_and_latency() -> None:
 
             assert len(result.vector) == service.dimension
             assert result.dimension == service.dimension
-            assert result.usage.input_tokens is not None
-            assert result.usage.total_tokens is not None
+            if settings.embedding_provider == "openai":
+                assert result.usage.input_tokens is not None
+                assert result.usage.total_tokens is not None
+            else:
+                assert result.usage.input_tokens is None
+                assert result.usage.total_tokens is None
             assert result.latency_ms >= 0
         finally:
             await service.close()

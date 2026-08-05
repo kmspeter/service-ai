@@ -38,13 +38,16 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
     llm_max_output_tokens: int = Field(default=1024, ge=1, le=100_000)
     llm_temperature: float | None = Field(default=None, ge=0, le=2)
+    embedding_provider: Literal["openai", "huggingface"] = "huggingface"
     embedding_api_key: SecretStr | None = None
+    hf_token: SecretStr | None = None
     embedding_model: str | None = None
     embedding_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
     tokenizer_model: str = Field(default="text-embedding-3-small", min_length=1)
     tokenizer_encoding: str | None = Field(default=None, min_length=1)
     chunk_size: int = Field(default=800, ge=1, le=1_000_000)
     chunk_overlap: int = Field(default=100, ge=0, le=999_999)
+    embedding_batch_size: int = Field(default=32, ge=1, le=2_048)
 
     qdrant_url: AnyHttpUrl | None = None
     qdrant_api_key: SecretStr | None = None
@@ -70,9 +73,9 @@ class Settings(BaseSettings):
         "llm_api_key",
         "llm_model",
     )
-    embedding_required_settings: ClassVar[tuple[str, ...]] = (
-        "embedding_api_key",
-        "embedding_model",
+    ingestion_required_settings: ClassVar[tuple[str, ...]] = (
+        *infrastructure_required_settings,
+        "qdrant_collection",
     )
 
     @field_validator("chunk_overlap")
@@ -107,9 +110,35 @@ class Settings(BaseSettings):
 
     def validate_embedding_settings(self) -> None:
         """Validate settings required by the Phase 04 embedding provider."""
-        self.validate_required_settings(
-            self.phase_required_settings + self.embedding_required_settings
+        credential = (
+            "hf_token" if self.embedding_provider == "huggingface" else "embedding_api_key"
         )
+        self.validate_required_settings(
+            self.phase_required_settings
+            + ("embedding_provider", credential, "embedding_model")
+        )
+
+    def has_embedding_settings(self) -> bool:
+        """Return whether the selected embedding provider can be constructed."""
+        credential = (
+            self.hf_token
+            if self.embedding_provider == "huggingface"
+            else self.embedding_api_key
+        )
+        return bool(credential and self.embedding_model)
+
+    def validate_ingestion_settings(self) -> None:
+        """Validate settings required by the Phase 07 ingestion pipeline."""
+        self.validate_required_settings(
+            self.phase_required_settings + self.ingestion_required_settings
+        )
+        self.validate_embedding_settings()
+
+    def has_ingestion_settings(self) -> bool:
+        """Return whether the ingestion service can be constructed safely."""
+        return all(
+            getattr(self, name, None) for name in self.ingestion_required_settings
+        ) and self.has_embedding_settings()
 
 
 @lru_cache

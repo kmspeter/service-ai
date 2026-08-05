@@ -69,7 +69,7 @@ class RecursiveDocumentChunker:
             if not content_unit.text:
                 continue
             for chunk_text in self._splitter.split_text(content_unit.text):
-                if not chunk_text:
+                if not chunk_text.strip():
                     continue
                 chunk_index = len(chunks)
                 chunks.append(

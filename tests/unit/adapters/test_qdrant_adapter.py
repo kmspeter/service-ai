@@ -11,6 +11,7 @@ from app.core.exceptions import (
     ExternalServiceError,
     ExternalServiceTimeoutError,
 )
+from app.ports.qdrant import VectorPoint
 
 
 class FailingQdrantClient:
@@ -50,3 +51,58 @@ def test_qdrant_sdk_errors_are_translated(sdk_error, expected_error) -> None:
 
     with pytest.raises(expected_error):
         asyncio.run(adapter.check_connection())
+
+
+class ReplacingQdrantClient:
+    def __init__(self, upsert_error: Exception | None = None) -> None:
+        self.upsert_error = upsert_error
+        self.calls = []
+
+    async def delete(self, **kwargs):
+        self.calls.append(("delete", kwargs))
+        return object()
+
+    async def upsert(self, **kwargs):
+        self.calls.append(("upsert", kwargs))
+        if self.upsert_error:
+            raise self.upsert_error
+        return object()
+
+
+def _point() -> VectorPoint:
+    return VectorPoint(
+        point_id="4b7114d8-199d-5a58-a5e6-6a87f5e52c5e",
+        vector=(0.1, 0.2, 0.3),
+        payload={"document_id": "doc-001", "chunk_text": "content"},
+    )
+
+
+def test_document_points_are_deleted_before_complete_batch_upsert() -> None:
+    client = ReplacingQdrantClient()
+    adapter = QdrantAdapter("http://qdrant.test:6333", client=client)
+
+    asyncio.run(
+        adapter.replace_document_points(
+            "documents", document_id="doc-001", points=(_point(),)
+        )
+    )
+
+    assert [call[0] for call in client.calls] == ["delete", "upsert"]
+    upserted = client.calls[1][1]["points"][0]
+    assert upserted.id == _point().point_id
+    assert upserted.payload["document_id"] == "doc-001"
+
+
+def test_failed_upsert_attempts_document_cleanup() -> None:
+    error = UnexpectedResponse(500, "error", b"failure", httpx.Headers())
+    client = ReplacingQdrantClient(upsert_error=error)
+    adapter = QdrantAdapter("http://qdrant.test:6333", client=client)
+
+    with pytest.raises(ExternalServiceError):
+        asyncio.run(
+            adapter.replace_document_points(
+                "documents", document_id="doc-001", points=(_point(),)
+            )
+        )
+
+    assert [call[0] for call in client.calls] == ["delete", "upsert", "delete"]

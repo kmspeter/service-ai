@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 import httpx
@@ -9,13 +10,16 @@ from qdrant_client.http.exceptions import (
 )
 
 from app.core.exceptions import (
+    ApplicationError,
     ExternalServiceAuthenticationError,
     ExternalServiceConnectionError,
     ExternalServiceError,
     ExternalServiceTimeoutError,
     ResourceNotFoundError,
 )
-from app.ports.qdrant import CollectionInfo, VectorDistance, VectorSize
+from app.ports.qdrant import CollectionInfo, VectorDistance, VectorPoint, VectorSize
+
+logger = logging.getLogger(__name__)
 
 _DISTANCES: dict[VectorDistance, models.Distance] = {
     "cosine": models.Distance.COSINE,
@@ -78,6 +82,59 @@ class QdrantAdapter:
             vector_size=_vector_size(info.config.params.vectors),
         )
 
+    async def replace_document_points(
+        self,
+        collection_name: str,
+        *,
+        document_id: str,
+        points: tuple[VectorPoint, ...],
+    ) -> None:
+        """Replace one document's points and compensate a failed write.
+
+        Embeddings are complete before this method is called. Existing points are
+        removed first so deterministic chunk IDs cannot leave stale tail chunks after
+        a smaller reprocessing result.
+        """
+        selector = _document_selector(document_id)
+        await self._call(
+            self._client.delete,
+            collection_name=collection_name,
+            points_selector=selector,
+            wait=True,
+        )
+        if not points:
+            return
+
+        qdrant_points = [
+            models.PointStruct(
+                id=point.point_id,
+                vector=list(point.vector),
+                payload=dict(point.payload),
+            )
+            for point in points
+        ]
+        try:
+            await self._call(
+                self._client.upsert,
+                collection_name=collection_name,
+                points=qdrant_points,
+                wait=True,
+            )
+        except ApplicationError:
+            try:
+                await self._call(
+                    self._client.delete,
+                    collection_name=collection_name,
+                    points_selector=selector,
+                    wait=True,
+                )
+            except ApplicationError:
+                logger.exception(
+                    "Qdrant compensation failed",
+                    extra={"collection": collection_name, "document_id": document_id},
+                )
+            raise
+
     async def delete_collection(self, collection_name: str) -> None:
         deleted = await self._call(self._client.delete_collection, collection_name)
         if not deleted:
@@ -123,3 +180,16 @@ def _vector_size(vectors: Any) -> VectorSize:
     if isinstance(vectors, dict):
         return {name: config.size for name, config in vectors.items()}
     return None
+
+
+def _document_selector(document_id: str) -> models.FilterSelector:
+    return models.FilterSelector(
+        filter=models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="document_id",
+                    match=models.MatchValue(value=document_id),
+                )
+            ]
+        )
+    )
