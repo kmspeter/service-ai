@@ -1,3 +1,17 @@
-from app.models.document import ContentUnit, NormalizedDocument, ParserInput
+from app.models.document import (
+    Chunk,
+    ChunkingResult,
+    ContentUnit,
+    DocumentStatistics,
+    NormalizedDocument,
+    ParserInput,
+)
 
-__all__ = ["ContentUnit", "NormalizedDocument", "ParserInput"]
+__all__ = [
+    "Chunk",
+    "ChunkingResult",
+    "ContentUnit",
+    "DocumentStatistics",
+    "NormalizedDocument",
+    "ParserInput",
+]

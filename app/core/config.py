@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import ClassVar, Literal
 
-from pydantic import AnyHttpUrl, Field, SecretStr
+from pydantic import AnyHttpUrl, Field, SecretStr, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     embedding_api_key: SecretStr | None = None
     embedding_model: str | None = None
     embedding_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
+    tokenizer_model: str = Field(default="text-embedding-3-small", min_length=1)
+    tokenizer_encoding: str | None = Field(default=None, min_length=1)
+    chunk_size: int = Field(default=800, ge=1, le=1_000_000)
+    chunk_overlap: int = Field(default=100, ge=0, le=999_999)
 
     qdrant_url: AnyHttpUrl | None = None
     qdrant_api_key: SecretStr | None = None
@@ -70,6 +74,15 @@ class Settings(BaseSettings):
         "embedding_api_key",
         "embedding_model",
     )
+
+    @field_validator("chunk_overlap")
+    @classmethod
+    def validate_chunk_overlap(cls, value: int, info: ValidationInfo) -> int:
+        """Require overlap to be smaller than the configured token chunk size."""
+        chunk_size = info.data.get("chunk_size")
+        if chunk_size is not None and value >= chunk_size:
+            raise ValueError("CHUNK_OVERLAP must be smaller than CHUNK_SIZE")
+        return value
 
     def validate_required_settings(self, names: tuple[str, ...] | None = None) -> None:
         """Validate settings required by a phase without exposing their values."""

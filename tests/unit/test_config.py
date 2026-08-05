@@ -64,3 +64,22 @@ def test_embedding_settings_load_and_validate(monkeypatch: pytest.MonkeyPatch) -
     assert settings.embedding_model == "text-embedding-3-small"
     assert settings.embedding_timeout_seconds == 8.5
 
+
+def test_chunk_settings_load_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TOKENIZER_MODEL", "text-embedding-3-small")
+    monkeypatch.setenv("TOKENIZER_ENCODING", "cl100k_base")
+    monkeypatch.setenv("CHUNK_SIZE", "64")
+    monkeypatch.setenv("CHUNK_OVERLAP", "8")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.tokenizer_model == "text-embedding-3-small"
+    assert settings.tokenizer_encoding == "cl100k_base"
+    assert settings.chunk_size == 64
+    assert settings.chunk_overlap == 8
+
+
+def test_chunk_overlap_must_be_smaller_than_chunk_size() -> None:
+    with pytest.raises(ValidationError, match="CHUNK_OVERLAP"):
+        Settings(chunk_size=10, chunk_overlap=10, _env_file=None)
+

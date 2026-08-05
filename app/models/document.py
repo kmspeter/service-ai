@@ -39,3 +39,35 @@ class NormalizedDocument:
     def content(self) -> str:
         """Return the complete extracted text without changing unit boundaries."""
         return "".join(unit.text for unit in self.content_units)
+
+
+@dataclass(frozen=True, slots=True)
+class Chunk:
+    """Retrieval unit with source metadata required for later citations."""
+
+    chunk_id: str
+    document_id: str
+    chunk_text: str
+    filename: str
+    page: int | None
+    section: str | None
+    file_type: str
+    chunk_index: int
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentStatistics:
+    """Measurements calculated after parsing and chunking."""
+
+    page_count: int
+    character_count: int
+    token_count: int
+    chunk_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class ChunkingResult:
+    """Chunks and document-level measurements produced in one operation."""
+
+    chunks: tuple[Chunk, ...]
+    statistics: DocumentStatistics

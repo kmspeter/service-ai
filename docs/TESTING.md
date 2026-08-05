@@ -392,6 +392,27 @@ page/section
 chunk_text
 ```
 
+Phase 06 Unit Test:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/unit/chunking tests/unit/test_config.py -q
+```
+
+개발용 Parser → Chunking 확인:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.inspect_chunking tests/fixtures/documents/multi_page.pdf
+```
+
+정책:
+
+- `CHUNK_SIZE`와 `CHUNK_OVERLAP`은 `TOKENIZER_MODEL` 또는 명시적인
+  `TOKENIZER_ENCODING`의 token 단위다.
+- PDF는 Page별로, MD는 Parser Section별로 독립 분할하여 Citation 위치 경계를 넘지 않는다.
+- Overlap도 같은 Page/Section 안에서만 적용한다.
+- TXT는 순서가 안정적인 `chunk_index`와 고유 `chunk_id`를 원본 위치 식별자로 사용한다.
+- 빈 문서는 빈 Chunk를 생성하지 않고 `token_count=0`, `chunk_count=0`으로 계산한다.
+
 ---
 
 # 12. Document Ingestion Test
