@@ -169,6 +169,30 @@ doc-001
 → document_id=doc-002: 검색 안 됨
 ```
 
+Phase 08:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests\unit\test_document_management.py tests\unit\adapters\test_qdrant_adapter.py tests\integration\test_document_management_api.py -q
+$env:RUN_INFRASTRUCTURE_TESTS="1"
+.\.venv\Scripts\python.exe -m pytest tests\integration\qdrant -q
+```
+
+삭제 검증:
+
+- `user_id + document_id`가 모두 일치하는 Point 전체 삭제
+- 같은 사용자의 다른 문서 보존
+- 같은 `document_id`를 가진 다른 사용자 Point 보존
+- 없는 문서는 `NOT_FOUND`
+- Qdrant 오류는 `FAILED / QDRANT_DELETE_FAILED / retryable=true`
+- Backend Metadata와 MinIO Object는 변경하지 않음
+
+상태 검증:
+
+- `PROCESSING`, `COMPLETED`, `FAILED`
+- Qdrant payload 기반 `COMPLETED` 복원
+- 모르는 문서와 다른 user Scope는 HTTP 404
+- 별도 Backend Document 복제 DB가 없음
+
 ---
 
 # 7. MinIO Test

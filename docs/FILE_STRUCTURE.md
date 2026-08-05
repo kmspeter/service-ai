@@ -6,7 +6,7 @@
 service-ai/
 ├─ app/
 │  ├─ api/
-│  │  ├─ documents.py           # POST /internal/documents 계약/HTTP 상태 매핑
+│  │  ├─ documents.py           # 문서 처리/삭제/상태 Internal REST 계약과 HTTP 매핑
 │  │  ├─ health.py              # /health, /ready
 │  │  └─ router.py              # API router 조립
 │  ├─ adapters/
@@ -39,13 +39,15 @@ service-ai/
 │  │  └─ registry.py             # 확장자별 Parser 선택의 단일 진입점
 │  ├─ services/
 │  │  ├─ chunking.py             # Token 측정과 위치 경계 보존 Recursive Chunking
+│  │  ├─ document_management.py  # Scoped Vector 삭제, 상태 Registry/조회, 문서 작업 Lock
 │  │  ├─ ingestion.py            # 문서 Ingestion 오케스트레이션과 재처리 정책
 │  │  ├─ llm.py                  # Provider 중립 LLM Application Service
 │  │  └─ embedding.py            # 단일/Batch Embedding과 Qdrant Dimension 정책
 │  ├─ schemas/
-│  │  ├─ documents.py           # Internal Document Processing request/response DTO
+│  │  ├─ documents.py           # Internal Document 처리/삭제/상태 DTO
 │  │  └─ health.py              # Health/Readiness response schema
 │  ├─ infrastructure.py         # Adapter 조립 및 lifecycle container
+│  ├─ documents.py              # Phase 08 Document Management Service 조립
 │  ├─ chunking.py               # 설정 기반 TokenCounter/Chunker 조립
 │  ├─ llm.py                    # 설정 기반 LLM Provider 조립
 │  ├─ embedding.py              # 설정 기반 Embedding Provider 조립
@@ -107,3 +109,7 @@ External SDK / Qdrant / MinIO
 - Ingestion에서는 파싱 결과가 비어 있으면 `DOCUMENT_EMPTY`로 실패시키고 Vector를 만들지 않는다.
 - 모든 Embedding Batch 완료 전에는 Qdrant를 변경하지 않는다.
 - 같은 `document_id` 재처리는 기존 Point를 교체하며 저장 실패 시 잔여 신규 Point 정리를 시도한다.
+- Ingestion 교체와 삭제는 같은 `user_id + document_id` 작업 Lock을 공유한다.
+- Qdrant 문서 교체·삭제·상태 조회는 `user_id + document_id` Filter를 모두 사용한다.
+- 처리 중/최근 실패 상태는 process-local Registry에만 두고 완료 상태는 Qdrant payload에서 복원한다.
+- 문서 삭제는 Qdrant Vector만 대상으로 하며 Backend Metadata와 MinIO 원본을 변경하지 않는다.

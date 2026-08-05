@@ -83,7 +83,10 @@ def test_document_points_are_deleted_before_complete_batch_upsert() -> None:
 
     asyncio.run(
         adapter.replace_document_points(
-            "documents", document_id="doc-001", points=(_point(),)
+            "documents",
+            user_id="user-001",
+            document_id="doc-001",
+            points=(_point(),),
         )
     )
 
@@ -91,6 +94,11 @@ def test_document_points_are_deleted_before_complete_batch_upsert() -> None:
     upserted = client.calls[1][1]["points"][0]
     assert upserted.id == _point().point_id
     assert upserted.payload["document_id"] == "doc-001"
+    conditions = client.calls[0][1]["points_selector"].filter.must
+    assert {(condition.key, condition.match.value) for condition in conditions} == {
+        ("user_id", "user-001"),
+        ("document_id", "doc-001"),
+    }
 
 
 def test_failed_upsert_attempts_document_cleanup() -> None:
@@ -101,7 +109,10 @@ def test_failed_upsert_attempts_document_cleanup() -> None:
     with pytest.raises(ExternalServiceError):
         asyncio.run(
             adapter.replace_document_points(
-                "documents", document_id="doc-001", points=(_point(),)
+                "documents",
+                user_id="user-001",
+                document_id="doc-001",
+                points=(_point(),),
             )
         )
 

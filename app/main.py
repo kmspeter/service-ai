@@ -9,8 +9,14 @@ from app.core.config import Settings, get_settings
 from app.core.exceptions import ApplicationError, register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.request_context import RequestContextMiddleware
+from app.documents import create_document_management_service
 from app.infrastructure import InfrastructureClients, create_infrastructure_clients
 from app.ingestion import create_document_ingestion_service
+from app.services.document_management import (
+    DocumentManagementService,
+    DocumentOperationLocks,
+    DocumentStatusRegistry,
+)
 from app.services.ingestion import DocumentIngestionService
 
 logger = logging.getLogger(__name__)
@@ -20,6 +26,7 @@ def create_app(
     settings: Settings | None = None,
     infrastructure: InfrastructureClients | None = None,
     document_ingestion: DocumentIngestionService | None = None,
+    document_management: DocumentManagementService | None = None,
 ) -> FastAPI:
     """Create an application instance with injectable settings."""
     application_settings = settings or get_settings()
@@ -32,6 +39,18 @@ def create_app(
     if owns_infrastructure:
         infrastructure_clients = create_infrastructure_clients(application_settings)
 
+    status_registry = (
+        document_ingestion.status_registry
+        if document_ingestion is not None
+        and hasattr(document_ingestion, "status_registry")
+        else DocumentStatusRegistry()
+    )
+    operation_locks = (
+        document_ingestion.operation_locks
+        if document_ingestion is not None
+        and hasattr(document_ingestion, "operation_locks")
+        else DocumentOperationLocks()
+    )
     owns_document_ingestion = (
         document_ingestion is None
         and infrastructure_clients is not None
@@ -41,7 +60,23 @@ def create_app(
     if owns_document_ingestion:
         assert infrastructure_clients is not None
         document_ingestion_service = create_document_ingestion_service(
-            application_settings, infrastructure_clients
+            application_settings,
+            infrastructure_clients,
+            status_registry,
+            operation_locks,
+        )
+
+    document_management_service = document_management
+    if (
+        document_management_service is None
+        and infrastructure_clients is not None
+        and application_settings.qdrant_collection is not None
+    ):
+        document_management_service = create_document_management_service(
+            application_settings,
+            infrastructure_clients,
+            status_registry,
+            operation_locks,
         )
 
     @asynccontextmanager
@@ -70,6 +105,7 @@ def create_app(
     application.state.settings = application_settings
     application.state.infrastructure = infrastructure_clients
     application.state.document_ingestion = document_ingestion_service
+    application.state.document_management = document_management_service
 
     application.add_middleware(RequestContextMiddleware)
     register_exception_handlers(application)

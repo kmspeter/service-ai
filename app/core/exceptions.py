@@ -257,6 +257,12 @@ class InternalApplicationError(ApplicationError):
     pass
 
 
+class DocumentStatusUnavailableError(ApplicationError):
+    status_code = 503
+    code = "DOCUMENT_STATUS_UNAVAILABLE"
+    public_message = "Document processing status is unavailable."
+
+
 def _request_id_from(request: Request) -> str:
     return getattr(request.state, "request_id", get_request_id())
 

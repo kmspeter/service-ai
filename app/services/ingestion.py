@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
@@ -25,11 +24,10 @@ from app.ports.embedding import EmbeddingVector
 from app.ports.qdrant import QdrantRepository, VectorPoint
 from app.ports.storage import ObjectStorage
 from app.services.chunking import RecursiveDocumentChunker
+from app.services.document_management import DocumentOperationLocks, DocumentStatusRegistry
 from app.services.embedding import EmbeddingService
 
 logger = logging.getLogger(__name__)
-
-_DOCUMENT_LOCK_STRIPES = 64
 
 
 class DocumentIngestionService:
@@ -45,6 +43,8 @@ class DocumentIngestionService:
         qdrant: QdrantRepository,
         collection_name: str,
         embedding_batch_size: int,
+        status_registry: DocumentStatusRegistry | None = None,
+        operation_locks: DocumentOperationLocks | None = None,
     ) -> None:
         if not collection_name.strip():
             raise ValueError("collection_name must not be empty")
@@ -57,15 +57,30 @@ class DocumentIngestionService:
         self._qdrant = qdrant
         self._collection_name = collection_name
         self._embedding_batch_size = embedding_batch_size
-        self._document_locks = tuple(asyncio.Lock() for _ in range(_DOCUMENT_LOCK_STRIPES))
+        self._status_registry = status_registry or DocumentStatusRegistry()
+        self._operation_locks = operation_locks or DocumentOperationLocks()
+
+    @property
+    def status_registry(self) -> DocumentStatusRegistry:
+        return self._status_registry
+
+    @property
+    def operation_locks(self) -> DocumentOperationLocks:
+        return self._operation_locks
 
     async def process(
         self, context: DocumentProcessingContext
     ) -> DocumentProcessingResult:
         """Process one document atomically at the application-policy boundary."""
-        lock = self._document_locks[hash(context.document_id) % len(self._document_locks)]
+        lock = self._operation_locks.for_document(
+            user_id=context.user_id,
+            document_id=context.document_id,
+        )
         async with lock:
-            return await self._process_locked(context)
+            await self._status_registry.mark_processing(context)
+            result = await self._process_locked(context)
+            await self._status_registry.record(context.user_id, result)
+            return result
 
     async def _process_locked(
         self, context: DocumentProcessingContext
@@ -248,6 +263,7 @@ class DocumentIngestionService:
             )
             await self._qdrant.replace_document_points(
                 self._collection_name,
+                user_id=context.user_id,
                 document_id=context.document_id,
                 points=points,
             )

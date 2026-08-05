@@ -3,6 +3,7 @@ import os
 from uuid import uuid4
 
 import pytest
+from qdrant_client import models
 
 from app.adapters.qdrant import QdrantAdapter
 from app.core.exceptions import (
@@ -106,6 +107,94 @@ def test_incompatible_existing_collection_is_rejected_without_recreation() -> No
             assert exc_info.value.expected_dimension == 1536
             assert exc_info.value.actual_dimension == 4
             assert (await adapter.get_collection(collection_name)).vector_size == 4
+        finally:
+            if await adapter.collection_exists(collection_name):
+                await adapter.delete_collection(collection_name)
+            await adapter.close()
+
+    asyncio.run(scenario())
+
+
+def test_scoped_document_delete_preserves_other_documents_and_users() -> None:
+    async def scenario() -> None:
+        adapter = _adapter()
+        collection_name = f"phase08_delete_{uuid4().hex}"
+        scoped_ids = [str(uuid4()), str(uuid4())]
+        other_document_id = str(uuid4())
+        other_user_id = str(uuid4())
+        try:
+            await adapter.create_collection(collection_name, vector_size=4)
+            await adapter._client.upsert(
+                collection_name=collection_name,
+                points=[
+                    models.PointStruct(
+                        id=scoped_ids[0],
+                        vector=[1.0, 0.0, 0.0, 0.0],
+                        payload={"user_id": "user-001", "document_id": "doc-001"},
+                    ),
+                    models.PointStruct(
+                        id=scoped_ids[1],
+                        vector=[0.0, 1.0, 0.0, 0.0],
+                        payload={"user_id": "user-001", "document_id": "doc-001"},
+                    ),
+                    models.PointStruct(
+                        id=other_document_id,
+                        vector=[0.0, 0.0, 1.0, 0.0],
+                        payload={"user_id": "user-001", "document_id": "doc-002"},
+                    ),
+                    models.PointStruct(
+                        id=other_user_id,
+                        vector=[0.0, 0.0, 0.0, 1.0],
+                        payload={
+                            "user_id": "user-002",
+                            "document_id": "doc-001",
+                            "status": "COMPLETED",
+                            "chunk_count": 1,
+                        },
+                    ),
+                ],
+                wait=True,
+            )
+
+            completed_payload = await adapter.get_document_payload(
+                collection_name,
+                user_id="user-002",
+                document_id="doc-001",
+            )
+            unknown_payload = await adapter.get_document_payload(
+                collection_name,
+                user_id="unknown-user",
+                document_id="doc-001",
+            )
+
+            deleted = await adapter.delete_document_points(
+                collection_name,
+                user_id="user-001",
+                document_id="doc-001",
+            )
+            missing = await adapter.delete_document_points(
+                collection_name,
+                user_id="user-001",
+                document_id="missing",
+            )
+            remaining, _ = await adapter._client.scroll(
+                collection_name=collection_name,
+                limit=10,
+                with_payload=True,
+                with_vectors=False,
+            )
+
+            assert completed_payload is not None
+            assert completed_payload["status"] == "COMPLETED"
+            assert completed_payload["chunk_count"] == 1
+            assert unknown_payload is None
+            assert deleted == 2
+            assert missing == 0
+            assert {
+                (point.payload["user_id"], point.payload["document_id"])
+                for point in remaining
+                if point.payload is not None
+            } == {("user-001", "doc-002"), ("user-002", "doc-001")}
         finally:
             if await adapter.collection_exists(collection_name):
                 await adapter.delete_collection(collection_name)

@@ -34,7 +34,9 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         request.state.request_id = request_id
         try:
             response = await call_next(request)
-            response.headers[REQUEST_ID_HEADER] = request_id
+            response.headers[REQUEST_ID_HEADER] = getattr(
+                request.state, "request_id", request_id
+            )
             return response
         finally:
             _request_id.reset(token)

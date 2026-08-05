@@ -89,13 +89,14 @@ class MemoryQdrant:
         self,
         collection_name: str,
         *,
+        user_id: str,
         document_id: str,
         points: tuple[VectorPoint, ...],
     ) -> None:
         self.replace_calls += 1
         if self.error:
             raise self.error
-        self.points_by_document[document_id] = points
+        self.points_by_document[f"{user_id}:{document_id}"] = points
 
 
 def _service(
@@ -160,7 +161,7 @@ def test_txt_md_pdf_complete_the_full_pipeline(filename: str, file_type: str) ->
     assert result.file_size == len(content)
     assert result.chunk_count and result.chunk_count > 0
     assert sum(len(call) for call in provider.calls) == result.chunk_count
-    points = qdrant.points_by_document["doc-001"]
+    points = qdrant.points_by_document["user-001:doc-001"]
     assert len(points) == result.chunk_count
     assert all(len(point.vector) == 3 for point in points)
     payload = points[0].payload
@@ -186,7 +187,7 @@ def test_embeddings_are_batched_and_qdrant_is_not_called_until_all_succeed() -> 
     assert len(provider.calls) > 1
     assert all(len(call) <= 2 for call in provider.calls)
     assert qdrant.replace_calls == 1
-    assert len(qdrant.points_by_document["doc-001"]) == result.chunk_count
+    assert len(qdrant.points_by_document["user-001:doc-001"]) == result.chunk_count
 
 
 def test_missing_object_is_standardized_before_parser_or_embedding() -> None:
@@ -283,3 +284,35 @@ def test_qdrant_failure_is_not_reported_as_completed() -> None:
     assert result.status is DocumentProcessingStatus.FAILED
     assert result.failure_reason is DocumentFailureReason.QDRANT_FAILED
     assert repository.replace_calls == 1
+
+
+def test_processing_status_is_visible_while_ingestion_is_running() -> None:
+    class BlockingStorage:
+        def __init__(self) -> None:
+            self.started = asyncio.Event()
+            self.release = asyncio.Event()
+
+        async def read_object(self, object_name: str) -> bytes:
+            self.started.set()
+            await self.release.wait()
+            return (FIXTURES / "sample.txt").read_bytes()
+
+    async def scenario():
+        storage = BlockingStorage()
+        service, _, _ = _service(storage)
+        context = _context("documents/doc-001/sample.txt")
+        processing_task = asyncio.create_task(service.process(context))
+        await storage.started.wait()
+        current = await service.status_registry.get(
+            user_id=context.user_id,
+            document_id=context.document_id,
+        )
+        storage.release.set()
+        completed = await processing_task
+        return current, completed
+
+    current, completed = asyncio.run(scenario())
+
+    assert current is not None
+    assert current.status is DocumentProcessingStatus.PROCESSING
+    assert completed.status is DocumentProcessingStatus.COMPLETED

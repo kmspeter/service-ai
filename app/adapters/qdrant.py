@@ -86,6 +86,7 @@ class QdrantAdapter:
         self,
         collection_name: str,
         *,
+        user_id: str,
         document_id: str,
         points: tuple[VectorPoint, ...],
     ) -> None:
@@ -95,7 +96,7 @@ class QdrantAdapter:
         removed first so deterministic chunk IDs cannot leave stale tail chunks after
         a smaller reprocessing result.
         """
-        selector = _document_selector(document_id)
+        selector = _document_selector(user_id=user_id, document_id=document_id)
         await self._call(
             self._client.delete,
             collection_name=collection_name,
@@ -134,6 +135,52 @@ class QdrantAdapter:
                     extra={"collection": collection_name, "document_id": document_id},
                 )
             raise
+
+    async def delete_document_points(
+        self,
+        collection_name: str,
+        *,
+        user_id: str,
+        document_id: str,
+    ) -> int:
+        """Delete only points matching the Backend-validated user/document scope."""
+        selector = _document_selector(user_id=user_id, document_id=document_id)
+        count = await self._call(
+            self._client.count,
+            collection_name=collection_name,
+            count_filter=selector.filter,
+            exact=True,
+        )
+        if count.count == 0:
+            return 0
+        await self._call(
+            self._client.delete,
+            collection_name=collection_name,
+            points_selector=selector,
+            wait=True,
+        )
+        return count.count
+
+    async def get_document_payload(
+        self,
+        collection_name: str,
+        *,
+        user_id: str,
+        document_id: str,
+    ) -> dict[str, Any] | None:
+        """Read one scoped payload for durable COMPLETED status recovery."""
+        selector = _document_selector(user_id=user_id, document_id=document_id)
+        points, _ = await self._call(
+            self._client.scroll,
+            collection_name=collection_name,
+            scroll_filter=selector.filter,
+            limit=1,
+            with_payload=True,
+            with_vectors=False,
+        )
+        if not points or points[0].payload is None:
+            return None
+        return dict(points[0].payload)
 
     async def delete_collection(self, collection_name: str) -> None:
         deleted = await self._call(self._client.delete_collection, collection_name)
@@ -182,10 +229,14 @@ def _vector_size(vectors: Any) -> VectorSize:
     return None
 
 
-def _document_selector(document_id: str) -> models.FilterSelector:
+def _document_selector(*, user_id: str, document_id: str) -> models.FilterSelector:
     return models.FilterSelector(
         filter=models.Filter(
             must=[
+                models.FieldCondition(
+                    key="user_id",
+                    match=models.MatchValue(value=user_id),
+                ),
                 models.FieldCondition(
                     key="document_id",
                     match=models.MatchValue(value=document_id),

@@ -1,12 +1,25 @@
-from fastapi import APIRouter, Request, Response, status
+from typing import Annotated
 
+from fastapi import APIRouter, Path, Query, Request, Response, status
+
+from app.core.exceptions import DocumentStatusUnavailableError
 from app.models.ingestion import (
+    DocumentDeleteFailureReason,
+    DocumentDeleteResult,
+    DocumentDeleteStatus,
     DocumentFailureReason,
+    DocumentOperationContext,
     DocumentProcessingContext,
     DocumentProcessingResult,
     DocumentProcessingStatus,
 )
-from app.schemas.documents import DocumentProcessingRequest, DocumentProcessingResponse
+from app.schemas.documents import (
+    DocumentDeleteResponse,
+    DocumentProcessingRequest,
+    DocumentProcessingResponse,
+    DocumentStatusResponse,
+)
+from app.services.document_management import DocumentManagementService
 from app.services.ingestion import DocumentIngestionService
 
 router = APIRouter(prefix="/internal", tags=["internal-documents"])
@@ -24,6 +37,9 @@ _FAILURE_HTTP_STATUS = {
     DocumentFailureReason.EMBEDDING_FAILED: status.HTTP_502_BAD_GATEWAY,
     DocumentFailureReason.QDRANT_FAILED: status.HTTP_502_BAD_GATEWAY,
 }
+
+_ScopedIdentifier = Annotated[str, Query(min_length=1, max_length=200)]
+_DocumentId = Annotated[str, Path(min_length=1, max_length=200)]
 
 
 @router.post("/documents", response_model=DocumentProcessingResponse)
@@ -47,3 +63,57 @@ async def process_document(
     if result.failure_reason is not None:
         response.status_code = _FAILURE_HTTP_STATUS[result.failure_reason]
     return DocumentProcessingResponse.model_validate(result)
+
+
+@router.delete("/documents/{document_id}", response_model=DocumentDeleteResponse)
+async def delete_document(
+    document_id: _DocumentId,
+    request: Request,
+    response: Response,
+    request_id: _ScopedIdentifier,
+    user_id: _ScopedIdentifier,
+) -> DocumentDeleteResponse:
+    request.state.request_id = request_id
+    service: DocumentManagementService | None = request.app.state.document_management
+    context = DocumentOperationContext(
+        request_id=request_id,
+        user_id=user_id,
+        document_id=document_id,
+    )
+    if service is None:
+        result = DocumentDeleteResult(
+            request_id=request_id,
+            document_id=document_id,
+            status=DocumentDeleteStatus.FAILED,
+            failure_reason=DocumentDeleteFailureReason.CONFIGURATION_ERROR,
+            retryable=True,
+        )
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    else:
+        result = await service.delete(context)
+        if result.status is DocumentDeleteStatus.NOT_FOUND:
+            response.status_code = status.HTTP_404_NOT_FOUND
+        elif result.status is DocumentDeleteStatus.FAILED:
+            response.status_code = status.HTTP_502_BAD_GATEWAY
+    return DocumentDeleteResponse.model_validate(result)
+
+
+@router.get("/documents/{document_id}/status", response_model=DocumentStatusResponse)
+async def get_document_status(
+    document_id: _DocumentId,
+    request: Request,
+    request_id: _ScopedIdentifier,
+    user_id: _ScopedIdentifier,
+) -> DocumentStatusResponse:
+    request.state.request_id = request_id
+    service: DocumentManagementService | None = request.app.state.document_management
+    if service is None:
+        raise DocumentStatusUnavailableError
+    result = await service.get_status(
+        DocumentOperationContext(
+            request_id=request_id,
+            user_id=user_id,
+            document_id=document_id,
+        )
+    )
+    return DocumentStatusResponse.model_validate(result)

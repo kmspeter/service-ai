@@ -166,6 +166,16 @@ curl.exe -X POST http://localhost:8000/internal/documents `
 처리 성공은 `COMPLETED`, 단계별 실패는 `FAILED`와 표준 `failure_reason`으로 반환한다.
 `user_id`는 일반 사용자 입력이 아니라 Backend가 검증해 전달한 실행 Context여야 한다.
 
+Vector 삭제와 AI 처리 상태 조회도 Backend 전용이며, body가 없는 요청의 실행 Context는 query로 전달한다.
+
+```powershell
+curl.exe -X DELETE "http://localhost:8000/internal/documents/doc-001?request_id=req-delete-001&user_id=user-123"
+curl.exe "http://localhost:8000/internal/documents/doc-001/status?request_id=req-status-001&user_id=user-123"
+```
+
+삭제는 `user_id + document_id`가 모두 일치하는 Qdrant Vector만 제거한다. Backend Metadata와 MinIO
+원본은 변경하지 않으며, Qdrant 실패는 재처리 가능한 실패 결과로 반환한다.
+
 테스트와 정적 검사:
 
 ```powershell

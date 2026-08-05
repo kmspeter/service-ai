@@ -123,6 +123,43 @@ Provider가 제공하지 않는 계측값은 Optional로 처리한다.
 
 ---
 
+## 5.1 Document Delete & Status
+
+`DELETE`와 `GET`은 body가 없는 Internal API이므로 Backend 실행 Context를 query로 전달한다.
+
+```text
+DELETE /internal/documents/{document_id}?request_id=req-001&user_id=user-123
+GET    /internal/documents/{document_id}/status?request_id=req-002&user_id=user-123
+```
+
+`user_id`는 Backend가 인증·소유권을 검증한 뒤 전달한 Scope다. AI Server는 소유권을 새로 판정하지
+않지만 Qdrant 접근에는 Defense in Depth로 `user_id + document_id` Filter를 모두 적용한다.
+
+삭제 성공:
+
+```json
+{
+  "request_id": "req-001",
+  "document_id": "doc-001",
+  "status": "DELETED",
+  "deleted_point_count": 3,
+  "failure_reason": null,
+  "retryable": false
+}
+```
+
+삭제 대상이 없으면 HTTP 404와 `NOT_FOUND`, Qdrant 실패는 HTTP 502와
+`FAILED / QDRANT_DELETE_FAILED / retryable=true`를 반환한다. 삭제 Endpoint는 Qdrant Vector만
+삭제하며 Backend Metadata와 MinIO 원본을 변경하지 않는다.
+
+상태 응답은 기존 `UPLOADED / PROCESSING / COMPLETED / FAILED` 개념을 지원한다. AI Server는
+Ingestion 중인 상태와 최근 결과만 process-local 메모리에 보관하고, `COMPLETED`는 Qdrant의 기존
+Chunk payload에서도 복원한다. 별도 문서 DB나 Backend Entity 복제본을 만들지 않는다. `UPLOADED`는
+Backend 책임 상태이므로 AI Server가 임의로 생성하지 않는다. AI Server가 아는 상태가 없거나 다른
+user Scope이면 HTTP 404를 반환한다.
+
+---
+
 # 6. Normalized Document
 
 Parser 간 공통 출력을 위한 내부 개념.

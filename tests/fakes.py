@@ -25,6 +25,21 @@ class FakeQdrantRepository:
     async def get_collection(self, collection_name: str) -> CollectionInfo:
         return CollectionInfo(collection_name, "green", 0, 0, None)
 
+    async def replace_document_points(
+        self, collection_name: str, *, user_id: str, document_id: str, points
+    ) -> None:
+        return None
+
+    async def delete_document_points(
+        self, collection_name: str, *, user_id: str, document_id: str
+    ) -> int:
+        return 0
+
+    async def get_document_payload(
+        self, collection_name: str, *, user_id: str, document_id: str
+    ):
+        return None
+
     async def delete_collection(self, collection_name: str) -> None:
         return None
 

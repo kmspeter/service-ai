@@ -49,9 +49,26 @@ class QdrantRepository(Protocol):
         self,
         collection_name: str,
         *,
+        user_id: str,
         document_id: str,
         points: tuple[VectorPoint, ...],
     ) -> None: ...
+
+    async def delete_document_points(
+        self,
+        collection_name: str,
+        *,
+        user_id: str,
+        document_id: str,
+    ) -> int: ...
+
+    async def get_document_payload(
+        self,
+        collection_name: str,
+        *,
+        user_id: str,
+        document_id: str,
+    ) -> Mapping[str, Any] | None: ...
 
     async def delete_collection(self, collection_name: str) -> None: ...
 

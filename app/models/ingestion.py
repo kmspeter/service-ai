@@ -3,6 +3,8 @@ from enum import StrEnum
 
 
 class DocumentProcessingStatus(StrEnum):
+    UPLOADED = "UPLOADED"
+    PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
 
@@ -21,12 +23,30 @@ class DocumentFailureReason(StrEnum):
     QDRANT_FAILED = "QDRANT_FAILED"
 
 
+class DocumentDeleteStatus(StrEnum):
+    DELETED = "DELETED"
+    NOT_FOUND = "NOT_FOUND"
+    FAILED = "FAILED"
+
+
+class DocumentDeleteFailureReason(StrEnum):
+    CONFIGURATION_ERROR = "CONFIGURATION_ERROR"
+    QDRANT_DELETE_FAILED = "QDRANT_DELETE_FAILED"
+
+
 @dataclass(frozen=True, slots=True)
 class DocumentProcessingContext:
     request_id: str
     user_id: str
     document_id: str
     storage_key: str
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentOperationContext:
+    request_id: str
+    user_id: str
+    document_id: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,3 +64,13 @@ class DocumentProcessingResult:
     parsing_time_ms: int | None = None
     embedding_time_ms: int | None = None
     failure_reason: DocumentFailureReason | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentDeleteResult:
+    request_id: str
+    document_id: str
+    status: DocumentDeleteStatus
+    deleted_point_count: int = 0
+    failure_reason: DocumentDeleteFailureReason | None = None
+    retryable: bool = False
