@@ -14,6 +14,12 @@ _HUGGINGFACE_MODEL_DIMENSIONS = {
     "unsloth/Qwen3-Embedding-0.6B": 1024,
 }
 
+_DEEPINFRA_MODEL_DIMENSIONS = {
+    "Qwen/Qwen3-Embedding-8B": 4096,
+}
+
+_DEEPINFRA_OPENAI_BASE_URL = "https://api.deepinfra.com/v1/openai"
+
 
 def create_embedding_service(settings: Settings) -> EmbeddingService:
     """Construct the selected embedding provider behind the common service."""
@@ -35,16 +41,31 @@ def create_embedding_service(settings: Settings) -> EmbeddingService:
             )
         )
 
-    dimension = _OPENAI_MODEL_DIMENSIONS.get(model)
+    if settings.embedding_provider == "deepinfra":
+        dimensions = _DEEPINFRA_MODEL_DIMENSIONS
+    else:
+        dimensions = _OPENAI_MODEL_DIMENSIONS
+    dimension = dimensions.get(model)
     if dimension is None:
         raise UnknownEmbeddingModelError(model)
-    assert settings.embedding_api_key is not None
+    api_key = settings.selected_embedding_api_key()
+    assert api_key is not None
+
+    base_url = settings.deepinfra_base_url
+    if base_url is None:
+        base_url = _DEEPINFRA_OPENAI_BASE_URL
 
     return EmbeddingService(
         OpenAIEmbeddingAdapter(
-            api_key=settings.embedding_api_key.get_secret_value(),
+            api_key=api_key.get_secret_value(),
             model=model,
             dimension=dimension,
+            base_url=(
+                str(base_url).rstrip("/")
+                if settings.embedding_provider == "deepinfra"
+                else None
+            ),
+            provider=settings.embedding_provider,
             timeout_seconds=settings.embedding_timeout_seconds,
         )
     )

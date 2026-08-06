@@ -177,6 +177,21 @@ def test_configured_huggingface_qwen_model_dimension_is_known() -> None:
     asyncio.run(service.close())
 
 
+def test_configured_deepinfra_qwen_model_dimension_is_known() -> None:
+    settings = Settings(
+        environment="test",
+        embedding_provider="deepinfra",
+        deepinfra_api_key="test-secret",
+        embedding_model="Qwen/Qwen3-Embedding-8B",
+        _env_file=None,
+    )
+
+    service = create_embedding_service(settings)
+
+    assert service.dimension == 4096
+    asyncio.run(service.close())
+
+
 def test_unknown_embedding_model_is_rejected() -> None:
     settings = Settings(
         environment="test",

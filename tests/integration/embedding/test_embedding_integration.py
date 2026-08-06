@@ -24,7 +24,7 @@ def test_real_embedding_vector_dimension_usage_and_latency() -> None:
 
             assert len(result.vector) == service.dimension
             assert result.dimension == service.dimension
-            if settings.embedding_provider == "openai":
+            if settings.embedding_provider in {"deepinfra", "openai"}:
                 assert result.usage.input_tokens is not None
                 assert result.usage.total_tokens is not None
             else:

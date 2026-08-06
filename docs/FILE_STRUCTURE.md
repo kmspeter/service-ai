@@ -14,7 +14,7 @@ service-ai/
 │  │  ├─ minio.py               # MinIO SDK Adapter 및 오류 변환
 │  │  ├─ huggingface_embedding.py # Hugging Face Feature Extraction Adapter
 │  │  ├─ openai.py              # OpenAI Responses API Adapter 및 Usage/오류 변환
-│  │  ├─ openai_embedding.py    # OpenAI Embeddings API Adapter 및 Vector/Usage 검증
+│  │  ├─ openai_embedding.py    # OpenAI-compatible Embeddings Adapter 및 Vector/Usage 검증
 │  │  ├─ ollama.py              # Ollama Cloud API Adapter 및 Usage/오류 변환
 │  │  └─ gemini.py              # Google Gemini Interactions API Adapter
 │  ├─ core/

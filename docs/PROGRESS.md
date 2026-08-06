@@ -131,6 +131,50 @@ Status: VERIFIED
 
 ---
 
+## Configuration Update 13.5
+
+```text
+Branch: 13.5
+Status: VERIFIED
+```
+
+### 구현 완료
+
+- 기본 Embedding Provider를 DeepInfra OpenAI 호환 API로 전환
+- `Qwen/Qwen3-Embedding-8B`와 4096 Vector Dimension 정책 등록
+- `DEEPINFRA_API_KEY`, `DEEPINFRA_BASE_URL`을 기존 LLM/OpenAI/Hugging Face
+  Credential과 분리
+- `LLM_PROVIDER`/`EMBEDDING_PROVIDER`로 활성 Credential을 선택하고
+  `LLM_MODEL`/`EMBEDDING_MODEL`로 실제 모델을 선택하도록 설정 경계 정리
+- 기존 `LLM_API_KEY`, `EMBEDDING_API_KEY`, `HF_TOKEN` 설정은 하위 호환 경로로 유지
+- Qdrant Collection을 4096차원 전용 이름으로 변경하고 기존 저차원 Collection 자동 재사용 방지
+- 로컬 `.env`에 실제 DeepInfra/OpenAI Credential과 모델 정책 반영 (`.gitignore` 유지)
+
+### 검증
+
+- Command: `.\.venv\Scripts\python.exe -m pytest tests/unit/adapters/test_huggingface_embedding_adapter.py tests/unit/adapters/test_openai_embedding_adapter.py tests/unit/test_embedding.py tests/unit/test_config.py tests/unit/test_llm.py -q`
+  - Result: PASS (`72 passed`)
+- Command: `$env:RUN_EMBEDDING_INTEGRATION_TESTS="1"; .\.venv\Scripts\python.exe -m pytest tests/integration/embedding -q`
+  - Result: PASS (`1 passed`, 실제 DeepInfra 인증/4096차원/Usage 검증)
+- Command: `.\.venv\Scripts\python.exe -m pytest -q`
+  - Result: PASS (`258 passed, 16 skipped`)
+- Command: `.\.venv\Scripts\python.exe -m ruff check .`
+  - Result: PASS
+- Command: `.\.venv\Scripts\python.exe -m pip check`
+  - Result: PASS (`No broken requirements found`)
+- Command: `git diff --check`
+  - Result: PASS
+
+### 미검증/남은 문제
+
+- 없음. 비용/Infrastructure가 필요한 기존 조건부 E2E 16개는 기본 전체 회귀에서 skip됨.
+
+### 다음 Phase
+
+- Phase 14 진행 가능.
+
+---
+
 # Progress Update Template
 
 Phase 완료/진행 시 아래 형식으로 갱신한다.

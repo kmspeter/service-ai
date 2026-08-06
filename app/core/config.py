@@ -34,6 +34,9 @@ class Settings(BaseSettings):
 
     llm_provider: str | None = None
     llm_api_key: SecretStr | None = None
+    openai_api_key: SecretStr | None = None
+    ollama_api_key: SecretStr | None = None
+    gemini_api_key: SecretStr | None = None
     llm_model: str | None = None
     llm_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
     llm_max_output_tokens: int = Field(default=1024, ge=1, le=100_000)
@@ -44,8 +47,10 @@ class Settings(BaseSettings):
         default=512, ge=1, le=100_000
     )
     max_recent_messages: int = Field(default=10, ge=1, le=1_000)
-    embedding_provider: Literal["openai", "huggingface"] = "huggingface"
+    embedding_provider: Literal["deepinfra", "openai", "huggingface"] = "huggingface"
     embedding_api_key: SecretStr | None = None
+    deepinfra_api_key: SecretStr | None = None
+    deepinfra_base_url: AnyHttpUrl | None = None
     hf_token: SecretStr | None = None
     embedding_model: str | None = None
     embedding_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
@@ -79,7 +84,6 @@ class Settings(BaseSettings):
     )
     llm_required_settings: ClassVar[tuple[str, ...]] = (
         "llm_provider",
-        "llm_api_key",
         "llm_model",
     )
     ingestion_required_settings: ClassVar[tuple[str, ...]] = (
@@ -131,25 +135,43 @@ class Settings(BaseSettings):
     def validate_llm_settings(self) -> None:
         """Validate settings required by the Phase 03 LLM provider."""
         self.validate_required_settings(self.phase_required_settings + self.llm_required_settings)
+        if not self.selected_llm_api_key():
+            self.validate_required_settings((self._selected_llm_api_key_field(),))
+
+    def selected_llm_api_key(self) -> SecretStr | None:
+        """Resolve the selected provider credential with legacy fallback support."""
+        provider_keys = {
+            "openai": self.openai_api_key,
+            "ollama": self.ollama_api_key,
+            "gemini": self.gemini_api_key,
+        }
+        provider = self.llm_provider.strip().lower() if self.llm_provider else ""
+        return provider_keys.get(provider) or self.llm_api_key
+
+    def has_llm_settings(self) -> bool:
+        """Return whether the selected LLM provider can be constructed."""
+        return bool(self.llm_provider and self.llm_model and self.selected_llm_api_key())
 
     def validate_embedding_settings(self) -> None:
         """Validate settings required by the Phase 04 embedding provider."""
-        credential = (
-            "hf_token" if self.embedding_provider == "huggingface" else "embedding_api_key"
-        )
         self.validate_required_settings(
             self.phase_required_settings
-            + ("embedding_provider", credential, "embedding_model")
+            + ("embedding_provider", "embedding_model")
         )
+        if not self.selected_embedding_api_key():
+            self.validate_required_settings((self._selected_embedding_api_key_field(),))
+
+    def selected_embedding_api_key(self) -> SecretStr | None:
+        """Resolve the selected embedding provider credential without sharing keys."""
+        if self.embedding_provider == "huggingface":
+            return self.hf_token
+        if self.embedding_provider == "deepinfra":
+            return self.deepinfra_api_key or self.embedding_api_key
+        return self.openai_api_key or self.embedding_api_key
 
     def has_embedding_settings(self) -> bool:
         """Return whether the selected embedding provider can be constructed."""
-        credential = (
-            self.hf_token
-            if self.embedding_provider == "huggingface"
-            else self.embedding_api_key
-        )
-        return bool(credential and self.embedding_model)
+        return bool(self.selected_embedding_api_key() and self.embedding_model)
 
     def validate_ingestion_settings(self) -> None:
         """Validate settings required by the Phase 07 ingestion pipeline."""
@@ -182,12 +204,14 @@ class Settings(BaseSettings):
         self.validate_required_settings(
             self.phase_required_settings + self.rag_required_settings
         )
+        self.validate_llm_settings()
         self.validate_embedding_settings()
 
     def has_rag_settings(self) -> bool:
         """Return whether retrieval and LLM dependencies can both be constructed."""
         return (
             all(getattr(self, name, None) for name in self.rag_required_settings)
+            and self.has_llm_settings()
             and self.has_embedding_settings()
         )
 
@@ -196,10 +220,28 @@ class Settings(BaseSettings):
         self.validate_required_settings(
             self.phase_required_settings + self.summary_required_settings
         )
+        self.validate_llm_settings()
 
     def has_summary_settings(self) -> bool:
         """Return whether the document summary service can be constructed."""
-        return all(getattr(self, name, None) for name in self.summary_required_settings)
+        return all(
+            getattr(self, name, None) for name in self.summary_required_settings
+        ) and self.has_llm_settings()
+
+    def _selected_llm_api_key_field(self) -> str:
+        provider = self.llm_provider.strip().lower() if self.llm_provider else ""
+        return {
+            "openai": "openai_api_key",
+            "ollama": "ollama_api_key",
+            "gemini": "gemini_api_key",
+        }.get(provider, "llm_api_key")
+
+    def _selected_embedding_api_key_field(self) -> str:
+        return {
+            "deepinfra": "deepinfra_api_key",
+            "huggingface": "hf_token",
+            "openai": "openai_api_key",
+        }[self.embedding_provider]
 
 
 @lru_cache

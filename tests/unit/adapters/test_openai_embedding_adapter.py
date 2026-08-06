@@ -187,3 +187,28 @@ def test_openai_sdk_retry_is_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert captured["max_retries"] == 0
     assert captured["timeout"] == 30.0
+
+
+def test_openai_compatible_base_url_is_forwarded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = {}
+    client = FakeOpenAIClient(response=_response())
+
+    def build_client(**parameters):
+        captured.update(parameters)
+        return client
+
+    monkeypatch.setattr("app.adapters.openai_embedding.AsyncOpenAI", build_client)
+
+    adapter = OpenAIEmbeddingAdapter(
+        api_key="test-secret",
+        model="Qwen/Qwen3-Embedding-8B",
+        dimension=3,
+        base_url="https://api.deepinfra.com/v1/openai",
+        provider="deepinfra",
+    )
+    result = asyncio.run(adapter.embed(("text",)))
+
+    assert captured["base_url"] == "https://api.deepinfra.com/v1/openai"
+    assert result.provider == "deepinfra"

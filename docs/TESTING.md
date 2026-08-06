@@ -319,13 +319,14 @@ Phase 04 Unit Test:
 .\.venv\Scripts\python.exe -m pytest tests/unit/adapters/test_huggingface_embedding_adapter.py tests/unit/adapters/test_openai_embedding_adapter.py tests/unit/test_embedding.py tests/unit/test_config.py -q
 ```
 
-기본 Provider인 Hugging Face 공용 Embedding 호출은 다음 설정이 모두 있을 때만 실행한다.
+기본 Provider인 DeepInfra Embedding 호출은 다음 설정이 모두 있을 때만 실행한다.
 
 ```text
 RUN_EMBEDDING_INTEGRATION_TESTS=1
-EMBEDDING_PROVIDER=huggingface
-HF_TOKEN
-EMBEDDING_MODEL=unsloth/Qwen3-Embedding-0.6B
+EMBEDDING_PROVIDER=deepinfra
+DEEPINFRA_API_KEY
+DEEPINFRA_BASE_URL=https://api.deepinfra.com/v1/openai
+EMBEDDING_MODEL=Qwen/Qwen3-Embedding-8B
 EMBEDDING_TIMEOUT_SECONDS=30
 ```
 
@@ -334,10 +335,13 @@ $env:RUN_EMBEDDING_INTEGRATION_TESTS="1"
 .\.venv\Scripts\python.exe -m pytest tests/integration/embedding -q
 ```
 
-`unsloth/Qwen3-Embedding-0.6B`의 기본 Vector Dimension은 1024다. Hugging Face Adapter는
-`hf-inference` Feature Extraction을 Batch로 호출하고, 정규화와 오른쪽 Truncation을 요청하며,
-반환된 모든 Vector의 개수·Dimension·유한값을 검증한다. 공용 API가 Token Usage를 제공하지
-않으면 `embedding_token_count`를 추정하지 않고 `null`로 유지한다.
+`Qwen/Qwen3-Embedding-8B`의 기본 Vector Dimension은 4096다. DeepInfra Adapter는
+OpenAI 호환 Endpoint를 Batch로 호출하고, 반환된 모든 Vector의 개수·Dimension·유한값과
+입력 순서를 검증한다. Provider가 Token Usage를 제공하면 그대로 집계한다.
+
+Hugging Face 회귀 경로는 `EMBEDDING_PROVIDER=huggingface`, `HF_TOKEN`,
+`unsloth/Qwen3-Embedding-0.6B` 설정으로 별도 검증할 수 있다. 공용 API가 Token Usage를
+제공하지 않으면 `embedding_token_count`를 추정하지 않고 `null`로 유지한다.
 
 OpenAI 회귀 경로는 `EMBEDDING_PROVIDER=openai`, `EMBEDDING_API_KEY`, 지원 모델 설정으로
 별도 검증할 수 있다.
@@ -345,7 +349,7 @@ OpenAI 회귀 경로는 `EMBEDDING_PROVIDER=openai`, `EMBEDDING_API_KEY`, 지원
 Qdrant Collection은 명시적인 `EmbeddingService.ensure_qdrant_collection` 호출에서만 생성한다.
 Collection이 없으면 Cosine/Provider Dimension으로 생성하고, 기존 Collection의 Dimension이 다르면 삭제하거나
 재생성하지 않고 `QDRANT_VECTOR_DIMENSION_MISMATCH` 오류를 발생시킨다.
-기존 1536차원 OpenAI Collection에서 전환할 때는 별도 1024차원 Collection 이름을 사용한다.
+기존 1024/1536차원 Collection에서 전환할 때는 별도 4096차원 Collection 이름을 사용한다.
 
 실제 Qdrant Dimension Integration Test:
 

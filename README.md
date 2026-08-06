@@ -116,17 +116,22 @@ Backend가 필요한 경계는 실제 Backend 계약을 침범하지 않는 개�
 
 ## Embedding Provider
 
-현재 기본 Embedding Provider는 Hugging Face 공용 Inference API의
-`unsloth/Qwen3-Embedding-0.6B`이며 Vector Dimension은 1024다.
+현재 기본 Embedding Provider는 DeepInfra의 OpenAI 호환 Embeddings API이며,
+`Qwen/Qwen3-Embedding-8B`의 Vector Dimension은 4096이다.
 
 ```text
-EMBEDDING_PROVIDER=huggingface
-HF_TOKEN=<로컬 환경에만 설정>
-EMBEDDING_MODEL=unsloth/Qwen3-Embedding-0.6B
+EMBEDDING_PROVIDER=deepinfra
+DEEPINFRA_API_KEY=<로컬 환경에만 설정>
+DEEPINFRA_BASE_URL=https://api.deepinfra.com/v1/openai
+EMBEDDING_MODEL=Qwen/Qwen3-Embedding-8B
 ```
 
-토큰은 Inference Providers 권한이 있는 새 토큰을 사용하고 저장소나 로그에 기록하지 않는다.
-기존 OpenAI Adapter도 `EMBEDDING_PROVIDER=openai` 선택지로 유지한다.
+Provider별 API Key는 서로 덮어쓰지 않고 로컬 환경에만 보관한다. `LLM_PROVIDER`와
+`EMBEDDING_PROVIDER`가 활성 Key를 선택하며, 실제 모델명은 각각 `LLM_MODEL`과
+`EMBEDDING_MODEL`에서 결정한다. 기존 Hugging Face/OpenAI 경로도 선택지로 유지한다.
+
+Embedding Dimension이 바뀌면 기존 Qdrant Collection을 재사용하지 않고 새 Collection을
+사용해야 한다.
 
 ---
 

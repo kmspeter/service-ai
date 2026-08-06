@@ -54,6 +54,23 @@ def test_llm_settings_load_and_validate(monkeypatch: pytest.MonkeyPatch) -> None
     assert settings.llm_temperature == 0.3
 
 
+def test_selected_llm_provider_uses_its_own_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("LLM_API_KEY", "legacy-secret")
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-secret")
+    monkeypatch.setenv("LLM_MODEL", "gpt-test")
+
+    settings = Settings(environment="test", _env_file=None)
+    settings.validate_llm_settings()
+
+    selected_key = settings.selected_llm_api_key()
+    assert selected_key is not None
+    assert selected_key.get_secret_value() == "openai-secret"
+    assert settings.has_llm_settings()
+
+
 def test_embedding_settings_load_and_validate(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EMBEDDING_PROVIDER", "openai")
     monkeypatch.setenv("EMBEDDING_API_KEY", "embedding-secret")
@@ -82,6 +99,29 @@ def test_huggingface_embedding_settings_load_and_validate(
     assert settings.embedding_provider == "huggingface"
     assert settings.hf_token is not None
     assert settings.hf_token.get_secret_value() == "hf-test-secret"
+    assert settings.has_embedding_settings()
+
+
+def test_deepinfra_embedding_settings_load_and_validate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "deepinfra")
+    monkeypatch.setenv("DEEPINFRA_API_KEY", "deepinfra-secret")
+    monkeypatch.setenv("EMBEDDING_MODEL", "Qwen/Qwen3-Embedding-8B")
+    monkeypatch.setenv(
+        "DEEPINFRA_BASE_URL", "https://api.deepinfra.com/v1/openai"
+    )
+
+    settings = Settings(environment="test", _env_file=None)
+    settings.validate_embedding_settings()
+
+    selected_key = settings.selected_embedding_api_key()
+    assert settings.embedding_provider == "deepinfra"
+    assert selected_key is not None
+    assert selected_key.get_secret_value() == "deepinfra-secret"
+    assert str(settings.deepinfra_base_url).rstrip("/") == (
+        "https://api.deepinfra.com/v1/openai"
+    )
     assert settings.has_embedding_settings()
 
 
@@ -233,6 +273,20 @@ def test_huggingface_embedding_settings_report_missing_token(
         settings.validate_embedding_settings()
 
     assert exc_info.value.missing_fields == ("hf_token",)
+
+
+def test_deepinfra_embedding_settings_report_missing_token() -> None:
+    settings = Settings(
+        environment="test",
+        embedding_provider="deepinfra",
+        embedding_model="Qwen/Qwen3-Embedding-8B",
+        _env_file=None,
+    )
+
+    with pytest.raises(SettingsConfigurationError) as exc_info:
+        settings.validate_embedding_settings()
+
+    assert exc_info.value.missing_fields == ("deepinfra_api_key",)
 
 
 def test_chunk_overlap_must_be_smaller_than_chunk_size() -> None:
