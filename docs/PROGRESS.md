@@ -42,7 +42,7 @@ VERIFIED
 | 12 | Query Rewrite | VERIFIED | Unit/RAG 19 + 실제 Gemini Prompt E2E + 전체 243 tests 통과 |
 | 13 | Context & Token Budget Manager | VERIFIED | Unit/RAG 35 + 전체 253 tests 통과 |
 | 14 | Tool Layer | VERIFIED | Tool Unit 15 + 전체 290 tests + branch coverage 87.93% 통과 |
-| 15 | Agent Tool Calling | NOT_STARTED | - |
+| 15 | Agent Tool Calling | VERIFIED | Agent Unit/Adapter 17 + 실제 Gemini 분기/경계 + 전체 307 tests + branch coverage 87.70% 통과 |
 | 16 | Usage Aggregation | NOT_STARTED | - |
 | 17 | WebSocket Event Model | NOT_STARTED | - |
 | 18 | WebSocket Streaming | NOT_STARTED | - |
@@ -54,7 +54,7 @@ VERIFIED
 ## 현재 Phase
 
 ```text
-Phase: 14
+Phase: 15
 Status: VERIFIED
 ```
 
@@ -62,37 +62,49 @@ Status: VERIFIED
 
 ## 구현 완료
 
-- LangChain `StructuredTool`로 변환 가능한 명시적 `ToolContract` 구현
-- 초기 Tool을 정확히 `search_documents`, `summarize_document`, `list_documents` 3개로 제한
-- 각 Tool의 Name, Description, Input Schema, Output Schema, Execution Function 고정
-- LLM 입력 Schema에서 `user_id`를 제거하고 Backend 검증 `ToolExecutionContext`에서
-  `request_id`, `user_id`, 문서 Scope를 주입
-- 제한된 문서 Scope 밖의 검색/요약 요청을 기존 Service 호출 전에 404 계열로 차단
-- `search_documents`가 Embedding/Qdrant 로직을 중복하지 않고 기존 `RetrievalService` 호출
-- `summarize_document`가 Direct/Hierarchical 전략을 포함한 기존 `DocumentSummaryService` 호출
-- `list_documents`가 Qdrant나 AI Server DB를 사용하지 않고 Backend Internal API
-  `GET /internal/documents`를 호출하도록 Port/HTTP Adapter 구현
-- 실제 Spring Backend 대신 Unit Test에서 `httpx.MockTransport` 기반 Mock Backend 사용
-- Backend Timeout, 연결/인증/일반 오류, 잘못된 응답을 공통 Application Error 경계로 표준화
-- Agent Tool 선택, Tool Loop, WebSocket 등 Phase 15 이후 기능은 구현하지 않음
+- Phase 14 사전 재검증: Agent 없이 세 Tool 직접 호출 `15 passed`
+- LangChain Chat Model의 native `bind_tools`와 `AIMessage.tool_calls`를 사용하는 단일 Agent Loop 구현
+- OpenAI/Ollama/Gemini 공식 LangChain Chat Model Adapter와 설정 기반 Factory 추가
+- 일반 질문 및 문서 경계가 애매한 질문은 No Tool, 명시적 업로드 문서 검색만
+  `search_documents`를 선택하도록 Agent Prompt와 Tool Description 분리/강화
+- Backend가 단일 문서를 선택한 Context에서는 검증된 `document_id`를 Prompt 힌트로 제공해
+  파일명 요약 요청이 불필요한 목록 조회 없이 `summarize_document`를 직접 호출
+- `summarize_document`, `list_documents`를 포함한 네 기본 분기와 Tool Result → 최종 Answer 왕복 구현
+- `MAX_AGENT_STEPS=6`, `MAX_TOOL_CALLS=3` 기본 설정과 실행 전 강제 제한으로 무한 Loop 차단
+- Tool 오류를 Stack Trace나 내부 상세 없이 안전한 `ToolMessage(status=error)`로 반환하고 재판단 허용
+- Agent가 생성한 `user_id`를 Tool Input Validation에서 거부하며, 실제 Service/Backend 호출은
+  `ToolExecutionContext`의 `request_id`, `user_id`, 문서 Scope만 사용
+- 검색 Citation을 LLM 출력에서 파싱하지 않고 실제 `SearchDocumentsOutput.results`에서 기존
+  Retrieval Citation 정책으로 생성하도록 공통 Citation Builder 분리
+- `agent/model/tool/limit`의 시작/완료/실패 상태를 `AgentExecutionObserver`로 실시간 관찰할 수 있게
+  하되 Phase 17 WebSocket Event 계약은 선행 구현하지 않음
+- Multi-Agent, Web Search, WebSocket, Usage Aggregation 등 Phase 16 이후 기능은 구현하지 않음
 
 ---
 
 ## 검증
 
-- Tool 직접 호출 Unit
+- Phase 14 사전 확인
   - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_tools.py -q`
   - Result: PASS (`15 passed`)
-  - Search 정상/빈 결과/다른 사용자 문서 Scope 차단/Qdrant 오류 검증
-  - Summary Direct/Hierarchical/문서 없음/문서 Scope 차단 검증
-  - List Mock Backend 정상/빈 목록/Timeout/500 오류 검증
+- Agent 결정적 Unit 및 Provider Adapter
+  - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_agent.py tests\unit\adapters\test_agent_model.py -q`
+  - Result: PASS (`17 passed`)
+  - No Tool 6개(일반 3 + Ambiguous 3), Search/Summary/List, 빈 검색, Scope 위조,
+    Tool Error, `MAX_TOOL_CALLS`, `MAX_AGENT_STEPS`, Observable State 검증
+- 실제 Gemini Agent 분기 통합
+  - Command: `$env:RUN_AGENT_INTEGRATION_TESTS='1'; .\.venv\Scripts\python.exe -m pytest tests\integration\agent\test_agent_provider_integration.py -q`
+  - Result: PASS (`1 passed`)
+  - 일반 상식/애매한 Qdrant 질문 Tool 0회, Search/Summary/List 각각 정확한 Tool 선택 검증
 - 전체 회귀 및 Branch Coverage
   - Command: `.\.venv\Scripts\python.exe -m pytest --cov=app --cov-branch --cov-report=term-missing -q`
-  - Result: PASS (`290 passed, 16 skipped`, total coverage `87.93%`)
-- 신규 Phase 14 모듈 타입 검사
-  - Command: `.\.venv\Scripts\python.exe -m mypy app\tools app\adapters\backend.py app\factories\backend.py app\models\tools.py app\ports\backend.py`
+  - Result: PASS (`307 passed, 17 skipped`, total coverage `87.70%`)
+- 신규 Phase 15 모듈 타입 검사
+  - Command: `.\.venv\Scripts\python.exe -m mypy app\services\agent.py app\models\agent.py app\ports\agent.py app\services\citations.py app\adapters\agent_model.py app\factories\agent.py app\services\rag.py app\tools\execution.py`
   - Result: PASS
 - Command: `.\.venv\Scripts\python.exe -m ruff check .`
+  - Result: PASS
+- Command: `.\.venv\Scripts\python.exe -m compileall -q app scripts tests`
   - Result: PASS
 - Command: `.\.venv\Scripts\python.exe -m pip check`
   - Result: PASS (`No broken requirements found`)
@@ -110,9 +122,11 @@ Status: VERIFIED
 ## 미검증 항목
 
 - 실제 Spring Backend가 아직 없어 `list_documents` 실제 Internal API 계약 통합 테스트는 미실행.
-- 실제 Qdrant/MinIO/LLM Credential이 필요한 기존 조건부 E2E 16개는 전체 회귀에서 skip.
-- 저장소 전체 mypy는 Phase 14 변경과 무관한 기존 21개 오류로 통과하지 않으며,
-  Phase 14 신규 모듈 범위의 mypy는 통과.
+- Phase 15 Agent 분기는 실제 Gemini로 검증했지만 OpenAI/Ollama 실제 Tool Calling은 미실행.
+- 실제 Qdrant/MinIO/LLM Credential이 필요한 기존 조건부 E2E와 기본 비활성 Agent E2E 17개는
+  전체 회귀에서 skip.
+- 저장소 전체 mypy는 이번 변경과 무관한 기존 21개 오류로 통과하지 않으며,
+  Phase 15 신규/영향 모듈 범위의 mypy는 통과.
 
 ---
 
@@ -120,10 +134,12 @@ Status: VERIFIED
 
 - `.env.example`, `pyproject.toml`
 - `app/core/config.py`, `app/core/exceptions.py`
-- `app/models/tools.py`, `app/ports/backend.py`
-- `app/adapters/backend.py`, `app/factories/backend.py`
-- `app/tools/__init__.py`, `app/tools/contracts.py`, `app/tools/execution.py`, `app/tools/schemas.py`
-- `tests/unit/test_tools.py`
+- `app/models/agent.py`, `app/ports/agent.py`, `app/prompts/agent.py`
+- `app/adapters/agent_model.py`, `app/factories/agent.py`
+- `app/services/agent.py`, `app/services/citations.py`, `app/services/rag.py`
+- `app/tools/execution.py`
+- `tests/unit/test_agent.py`, `tests/unit/adapters/test_agent_model.py`
+- `tests/integration/agent/__init__.py`, `tests/integration/agent/test_agent_provider_integration.py`
 - `docs/ARCHITECTURE.md`, `docs/CONTRACTS.md`, `docs/FILE_STRUCTURE.md`, `docs/TESTING.md`,
   `docs/PROGRESS.md`
 
@@ -131,8 +147,8 @@ Status: VERIFIED
 
 ## 다음 작업
 
-- Phase 14 필수 범위와 비용 없는 전체 회귀 검증이 완료되어 Phase 15 진행 가능.
-- 다음 Phase에서만 LLM Agent의 Tool 선택과 `MAX_AGENT_STEPS`/`MAX_TOOL_CALLS`를 구현한다.
+- Phase 15 필수 범위와 실제 Gemini Tool 선택 검증이 완료되어 Phase 16 진행 가능.
+- 다음 Phase에서만 여러 Agent LLM Call의 Usage Aggregation을 구현한다.
 - 실제 Spring Backend가 준비되면 `list_documents` Internal API 계약 통합 테스트를 추가한다.
 
 ---

@@ -22,9 +22,11 @@ from app.tools.schemas import (
 )
 
 SEARCH_DOCUMENTS_DESCRIPTION = (
-    "Search uploaded document content for relevant passages. Use this for questions that "
-    "require finding facts across documents, not for whole-document summaries or file "
-    "listing. User and document access are restricted by the server execution context."
+    "Search the current user's uploaded document content for relevant passages. Call this "
+    "only when the user explicitly asks to find an answer in their uploaded/my/specific "
+    "documents. Do not call it for general knowledge questions, even when the topic could "
+    "also appear in a document. It is not for whole-document summaries or file listing. "
+    "User and document access are restricted by the server execution context."
 )
 SUMMARIZE_DOCUMENT_DESCRIPTION = (
     "Summarize one specific uploaded document. Use this only when a whole-document summary "
@@ -40,6 +42,7 @@ LIST_DOCUMENTS_DESCRIPTION = (
 
 @dataclass(frozen=True, slots=True)
 class ToolRegistry:
+    context: ToolExecutionContext
     search_documents: ToolContract[SearchDocumentsInput, SearchDocumentsOutput]
     summarize_document: ToolContract[SummarizeDocumentInput, SummarizeDocumentOutput]
     list_documents: ToolContract[ListDocumentsInput, ListDocumentsOutput]
@@ -121,6 +124,7 @@ def create_tool_registry(
         )
 
     return ToolRegistry(
+        context=context,
         search_documents=ToolContract(
             name="search_documents",
             description=SEARCH_DOCUMENTS_DESCRIPTION,

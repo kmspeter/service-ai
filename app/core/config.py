@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     llm_max_output_tokens: int = Field(default=1024, ge=1, le=100_000)
     llm_context_window: int | None = Field(default=None, ge=128, le=2_000_000)
     llm_temperature: float | None = Field(default=None, ge=0, le=2)
+    max_agent_steps: int = Field(default=6, ge=1, le=100)
+    max_tool_calls: int = Field(default=3, ge=1, le=100)
     summary_safety_margin_tokens: int = Field(default=256, ge=0, le=100_000)
     conversation_summary_max_output_tokens: int = Field(
         default=512, ge=1, le=100_000

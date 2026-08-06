@@ -943,6 +943,34 @@ Tool Input Schema에는 LLM이 선택할 `user_id`를 노출하지 않고, 테�
 
 Agent가 일반 질문에 불필요한 Qdrant Search를 수행하지 않는지 확인한다.
 
+Phase 15 결정적 Agent/Adapter 검증:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest `
+  tests\unit\test_agent.py `
+  tests\unit\adapters\test_agent_model.py -q
+```
+
+포함 범위:
+
+- 일반 상식 3개와 문서/일반 경계가 애매한 질문 3개의 `tool_call_count = 0`
+- `search_documents`, `summarize_document`, `list_documents` 선택과 Tool Result 왕복
+- Agent가 만든 `user_id` 거부 및 Context의 실제 사용자/문서 Scope 유지
+- 빈 검색 결과의 빈 Citation
+- Tool Error 1회 후 최종 Answer 및 반복 시 `MAX_TOOL_CALLS` 차단
+- `MAX_AGENT_STEPS` 도달 전 추가 Model 호출 차단
+- `AgentExecutionObserver`에 안전한 단계/상태만 전달
+
+실제 LLM 의미 분기 검증은 명시적으로 활성화한다.
+
+```powershell
+$env:RUN_AGENT_INTEGRATION_TESTS="1"
+.\.venv\Scripts\python.exe -m pytest `
+  tests\integration\agent\test_agent_provider_integration.py -q
+```
+
+실제 Provider 테스트는 비용/외부 Credential이 필요하므로 기본 전체 회귀에서는 skip한다.
+
 ---
 
 # 21. Usage Test

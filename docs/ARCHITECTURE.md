@@ -137,7 +137,7 @@ Prompt 변경이 Service 코드 변경과 가능한 한 독립적이어야 한�
 
 ## 4. 현재 코드 구조와 확장 경계
 
-Phase 14까지의 실제 구조다. Phase 15 이후 디렉터리는 해당 Phase에서 추가한다.
+Phase 15까지의 실제 구조다. Phase 16 이후 디렉터리는 해당 Phase에서 추가한다.
 
 ```text
 app/
@@ -170,7 +170,8 @@ app/
 │  ├─ summary.py
 │  ├─ query_rewrite.py
 │  ├─ context.py
-│  └─ tools.py
+│  ├─ tools.py
+│  └─ agent.py
 │
 ├─ services/
 │  ├─ ingestion.py
@@ -183,7 +184,9 @@ app/
 │  ├─ summary.py
 │  ├─ query_rewrite.py
 │  ├─ conversation_compaction.py
-│  └─ context.py
+│  ├─ context.py
+│  ├─ citations.py
+│  └─ agent.py
 │
 ├─ parsers/
 │  ├─ base.py
@@ -200,16 +203,22 @@ app/
 │  ├─ execution.py              # 검증 Context에 바인딩된 세 실행 함수
 │  └─ schemas.py                # LLM-visible Input과 구조화 Output
 │
+├─ prompts/
+│  └─ agent.py                  # No Tool/세 Tool 선택과 응답 근거 규칙
+│
 ├─ ports/                        # Protocol 중심의 외부/Application 경계
-├─ adapters/                     # 외부 SDK 타입과 오류 변환
-├─ factories/                    # 기능별 객체 조립
-└─ prompts/                      # Prompt 단일 관리
+│  └─ agent.py                  # 향후 실시간 실행 상태 Observer 경계
+├─ adapters/
+│  └─ agent_model.py            # LangChain OpenAI/Ollama/Gemini Tool Calling Model
+└─ factories/
+   └─ agent.py                  # 설정/Context-bound Tool/Model Agent 조립
 ```
 
 `ApplicationContainer`는 현재 Service와 Infrastructure Resource를 조립하고, 자신이 생성한 객체만
 lifespan 종료 시 닫는다. 테스트나 수동 실행에서 주입한 객체는 호출자가 소유한다. Phase 14 Tool은
-기존 Service/Backend Client를 주입받으며, Phase 15 이후 Agent와 WebSocket Service도 이 조립 경계에
-추가하고 `main.py`나 API 모듈에서 직접 Provider를 생성하지 않는다.
+기존 Service/Backend Client를 주입받고, Phase 15 Agent는 요청별 `ToolExecutionContext`에 바인딩된
+Tool Registry와 설정된 LangChain Chat Model을 Factory에서 조립한다. Phase 18 WebSocket Service도
+같은 조립 경계에 추가하고 `main.py`나 API 모듈에서 직접 Provider를 생성하지 않는다.
 
 ---
 
@@ -418,7 +427,7 @@ AI Server는 Backend가 제공한 원본 Context를 LLM 입력에 적합하게 �
 ```text
 Current Message
       ↓
-Agent
+Agent Prompt + LangChain Chat Model.bind_tools
       │
       ├─ No Tool
       │    ↓
@@ -437,12 +446,28 @@ Agent
           Backend Client
 ```
 
+LLM이 반환한 `AIMessage.tool_calls`만 애플리케이션이 실행하고, Tool 결과는 `ToolMessage`로 다음
+LLM Step에 전달한다. 질문 문자열에 대한 별도 Python Keyword Router는 두지 않는다.
+
+Scope는 Prompt 지시가 아니라 요청별 `ToolExecutionContext`에서 강제한다. Agent가 `user_id`를
+Tool argument에 포함하면 Input Schema에서 거부하며, 정상 Tool 실행도 Context의 `user_id`와 허용
+문서 Scope만 기존 Service/Backend Client에 전달한다. Backend가 단일 문서를 선택한 경우 검증된
+`document_id`는 파일명 요약을 직접 `summarize_document`로 연결하기 위한 Prompt 힌트로도 전달하지만,
+권한 판정은 여전히 Tool 실행 Context가 담당한다.
+
+`search_documents` 결과 Citation은 LLM이 만들지 않는다. 실제 Tool Output의 Retrieval metadata를
+공통 Citation Builder가 변환하고 완전 중복을 최초 검색 순서 기준으로 제거한다.
+
 반복 제한:
 
 ```text
 MAX_AGENT_STEPS
 MAX_TOOL_CALLS
 ```
+
+각 Model 호출 전에 `MAX_AGENT_STEPS`, 각 Tool 실행 전에 `MAX_TOOL_CALLS`를 확인해 상한을 넘는
+호출 자체를 실행하지 않는다. `AgentExecutionObserver`는 `agent/model/tool/limit` 단계와
+시작/완료/실패 상태만 전달하며 Prompt, Chain-of-Thought, Tool 원문, Stack Trace는 전달하지 않는다.
 
 ---
 

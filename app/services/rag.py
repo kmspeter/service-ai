@@ -3,9 +3,10 @@ from typing import Protocol
 from app.models.context import ManagedConversation
 from app.models.llm import LLMRequest, LLMResult
 from app.models.query_rewrite import QueryRewriteRequest, QueryRewriteResult
-from app.models.rag import Citation, RAGRequest, RAGResponse
+from app.models.rag import RAGRequest, RAGResponse
 from app.models.retrieval import RetrievalRequest, RetrievalResult
 from app.prompts.rag import INSUFFICIENT_EVIDENCE_ANSWER
+from app.services.citations import citations_from_retrieval
 from app.services.context import ContextBudgetManager
 
 
@@ -90,7 +91,7 @@ class RAGService:
         )
         return RAGResponse(
             answer=llm_result.content,
-            citations=_citations_from(context.rag_results),
+            citations=citations_from_retrieval(context.rag_results),
             retrieval_results=retrieval_results,
             context_results=context.rag_results,
             context_token_count=context.token_usage.rag_context_tokens,
@@ -121,29 +122,3 @@ def _insufficient_response(
         conversation_context=conversation,
         context_token_usage=None,
     )
-
-
-def _citations_from(results: tuple[RetrievalResult, ...]) -> tuple[Citation, ...]:
-    citations: list[Citation] = []
-    seen: set[tuple[str, str, str, int | None, str | None]] = set()
-    for result in results:
-        key = (
-            result.document_id,
-            result.filename,
-            result.chunk_id,
-            result.page,
-            result.section,
-        )
-        if key in seen:
-            continue
-        seen.add(key)
-        citations.append(
-            Citation(
-                document_id=result.document_id,
-                filename=result.filename,
-                chunk_id=result.chunk_id,
-                page=result.page,
-                section=result.section,
-            )
-        )
-    return tuple(citations)

@@ -764,6 +764,57 @@ Client 호출에 주입된다.
 
 ---
 
+# 32.1 Agent Run 내부 계약
+
+Phase 15 Agent는 LangChain Chat Model에 위 세 `StructuredTool`만 바인딩한다. LLM이 반환한
+`AIMessage.tool_calls`가 없으면 해당 Message 본문을 Final Answer로 사용하고 Tool을 실행하지 않는다.
+질문 문자열의 Keyword를 Python 코드로 분류하는 별도 Router는 두지 않는다.
+Backend가 검증한 선택 문서 ID는 Agent Prompt의 실행 힌트로 제공할 수 있으나 Scope 권한의 근거로
+사용하지 않는다. 선택 ID가 하나이고 사용자가 특정 파일을 요약해 달라고 하면 해당 ID로
+`summarize_document`를 직접 호출하고, 파일명과 ID를 대응할 수 없을 때만 목록 조회를 선행한다.
+
+```text
+SystemMessage(Agent Prompt) + HumanMessage
+ ↓
+AIMessage
+ ├─ tool_calls 없음 → Final Answer
+ └─ tool_calls 있음 → Context-bound StructuredTool → ToolMessage → 다음 LLM Step
+```
+
+실행 제한:
+
+```text
+MAX_AGENT_STEPS: 각 LLM 호출 전에 검사
+MAX_TOOL_CALLS: 각 Tool 실행 전에 검사
+```
+
+상한에 도달하면 추가 호출을 실행하지 않고 각각 `AGENT_STEP_LIMIT_REACHED`,
+`AGENT_TOOL_CALL_LIMIT_REACHED` 오류로 종료한다. Tool 자체 오류는 공개 가능한 오류 Code/Message만
+`ToolMessage(status=error)`에 담고 Stack Trace나 내부 예외 문자열을 모델/외부 응답에 전달하지 않는다.
+
+Agent 결과 내부 모델:
+
+```json
+{
+  "request_id": "req-001",
+  "answer": "...",
+  "citations": [],
+  "tool_names": ["search_documents"],
+  "tool_call_count": 1,
+  "agent_steps": 2,
+  "states": []
+}
+```
+
+`states`는 Phase 17 WebSocket Event 자체가 아니라 향후 변환 가능한 Application 경계다. 허용 정보는
+`agent/model/tool/limit` 단계, `started/completed/failed/reached` 상태, Step/Tool 호출 수,
+Tool 이름, 표준 오류 Code다. Prompt, Chain-of-Thought, Tool 원문, Stack Trace는 포함하지 않는다.
+
+검색 Citation은 LLM 출력에서 파싱하지 않고 성공한 `search_documents.results`의 실제 Retrieval
+metadata에서만 생성하며 기존 Citation 중복 제거 순서를 유지한다.
+
+---
+
 # 33. Contract 변경 규칙
 
 다음 변경은 Backend/Frontend 영향이 크므로 임의 변경하지 않는다.

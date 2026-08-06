@@ -83,6 +83,36 @@ class AIProcessingError(ApplicationError):
     public_message = "The AI request could not be processed."
 
 
+class AgentModelError(AIProcessingError):
+    code = "AGENT_MODEL_FAILED"
+    public_message = "The Agent model request failed."
+
+
+class AgentInvalidResponseError(AIProcessingError):
+    code = "AGENT_INVALID_RESPONSE"
+    public_message = "The Agent returned an invalid response."
+
+
+class AgentStepLimitError(AIProcessingError):
+    code = "AGENT_STEP_LIMIT_REACHED"
+    public_message = "The Agent step limit was reached."
+
+    def __init__(self, *, limit: int, completed_steps: int) -> None:
+        self.limit = limit
+        self.completed_steps = completed_steps
+        super().__init__()
+
+
+class AgentToolCallLimitError(AIProcessingError):
+    code = "AGENT_TOOL_CALL_LIMIT_REACHED"
+    public_message = "The Agent tool call limit was reached."
+
+    def __init__(self, *, limit: int, completed_calls: int) -> None:
+        self.limit = limit
+        self.completed_calls = completed_calls
+        super().__init__()
+
+
 class SummaryGenerationError(AIProcessingError):
     code = "SUMMARY_GENERATION_FAILED"
     public_message = "The document summary could not be generated."
