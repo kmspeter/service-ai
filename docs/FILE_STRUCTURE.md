@@ -10,6 +10,7 @@ service-ai/
 │  │  ├─ health.py              # /health, /ready
 │  │  └─ router.py              # API router 조립
 │  ├─ adapters/
+│  │  ├─ backend.py             # Backend Internal API 문서 목록 Client 및 오류 변환
 │  │  ├─ qdrant.py              # Qdrant SDK Adapter 및 오류 변환
 │  │  ├─ minio.py               # MinIO SDK Adapter 및 오류 변환
 │  │  ├─ huggingface_embedding.py # Hugging Face Feature Extraction Adapter
@@ -25,6 +26,7 @@ service-ai/
 │  ├─ chunking/
 │  │  └─ recursive.py            # Token 측정과 위치 경계 보존 Recursive Chunking
 │  ├─ ports/
+│  │  ├─ backend.py              # Backend 문서 목록 Source-of-Truth Protocol
 │  │  ├─ documents.py            # 문서 처리/관리 Application Protocol
 │  │  ├─ qdrant.py               # Runtime/Admin Qdrant Protocol과 경계 DTO
 │  │  ├─ storage.py              # Runtime/Admin Object Storage Protocol과 경계 DTO
@@ -39,7 +41,12 @@ service-ai/
 │  │  ├─ query_rewrite.py         # 대화 기반 검색 질의 재작성 내부 모델
 │  │  ├─ retrieval.py            # Retrieval Request와 Citation-ready Result 내부 모델
 │  │  ├─ rag.py                   # Pure RAG Request/Response와 Citation 내부 모델
-│  │  └─ summary.py               # 문서 요약 요청/결과/전략 내부 모델
+│  │  ├─ summary.py               # 문서 요약 요청/결과/전략 내부 모델
+│  │  └─ tools.py                 # 검증된 Tool 실행 Context와 Backend 문서 모델
+│  ├─ tools/
+│  │  ├─ contracts.py            # Name/Description/Input/Output/Execution 계약과 LangChain 변환
+│  │  ├─ execution.py            # 세 Tool의 Context-bound 기존 Service/Backend 호출
+│  │  └─ schemas.py              # LLM-visible Tool Input과 구조화 Output Schema
 │  ├─ prompts/
 │  │  ├─ conversation_summary.py # 대화 압축 Prompt
 │  │  ├─ query_rewrite.py        # 검색 질의 재작성 Prompt
@@ -69,6 +76,7 @@ service-ai/
 │  │  ├─ embedding.py            # 단일/Batch Embedding 검증
 │  │  └─ vector_collection.py    # Qdrant Collection 존재/Dimension 정책
 │  ├─ factories/
+│  │  ├─ backend.py              # Backend Internal API Client 조립
 │  │  ├─ chunking.py             # 설정 기반 TokenCounter/Chunker 조립
 │  │  ├─ document_management.py  # Document Management Service 조립
 │  │  ├─ embedding.py            # Embedding Provider/Service 조립
@@ -93,6 +101,7 @@ service-ai/
 ├─ tests/
 │  ├─ fixtures/documents/        # 비민감 TXT/MD/PDF Parser Fixture
 │  ├─ unit/                      # 단일 클래스/함수와 Adapter 오류 변환
+│  │  └─ test_tools.py           # Agent 없는 세 Tool 직접 호출과 Mock Backend 검증
 │  ├─ component/                 # 여러 Service를 Fake Port로 조립한 결정적 흐름
 │  ├─ contract/                  # FastAPI HTTP/오류/헤더 계약
 │  ├─ smoke/                     # 수동 스크립트 import 및 직접 실행 가능성
@@ -131,6 +140,14 @@ QdrantAdapter / MinIOStorageAdapter / LLM Adapters / Embedding Adapters
 External SDK / Qdrant / MinIO
 ```
 
+```text
+LangChain Tool
+    ↓
+ToolExecutionContext + 기존 Retrieval/Summary Service 또는 BackendDocumentsClient
+    ↓
+Qdrant/MinIO/LLM 또는 Backend Internal API
+```
+
 - API와 향후 Application Service/Tool은 외부 SDK를 직접 호출하지 않는다.
 - `main.py`는 HTTP/lifespan만 연결하고 실제 생성·소유권·종료 순서는 `ApplicationContainer`가 담당한다.
 - 외부에서 주입된 Resource/Service는 호출자 소유이며 Container가 닫지 않는다.
@@ -154,6 +171,8 @@ External SDK / Qdrant / MinIO
 - Ingestion 교체와 삭제는 같은 `user_id + document_id` 작업 Lock을 공유한다.
 - Qdrant 문서 교체·삭제·상태 조회는 `user_id + document_id` Filter를 모두 사용한다.
 - Qdrant Retrieval은 문서 범위 유무와 무관하게 `user_id` Filter를 항상 사용한다.
+- Tool Input Schema는 `user_id`를 노출하지 않고 검증된 `ToolExecutionContext`에서 Scope를 주입한다.
+- `list_documents`는 Qdrant가 아니라 Backend Internal API를 Source of Truth로 사용한다.
 - 문서 범위가 있으면 단일 `document_id` 또는 복수 `document_ids` Filter를 추가한다.
 - Retrieval Result는 Phase 10 Citation에 필요한 Chunk 본문과 위치 Metadata를 보존한다.
 - RAG Prompt는 `app/prompts/rag.py`에서 단일 관리하며 Service에 Prompt 문자열을 분산하지 않는다.

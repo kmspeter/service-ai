@@ -59,6 +59,14 @@ class ExternalServiceAuthenticationError(ExternalServiceError):
     public_message = "An external service could not be authenticated."
 
 
+class BackendInvalidResponseError(ExternalServiceError):
+    code = "BACKEND_INVALID_RESPONSE"
+    public_message = "The Backend Internal API returned an invalid response."
+
+    def __init__(self) -> None:
+        super().__init__("backend")
+
+
 class ResourceNotFoundError(ApplicationError):
     status_code = 404
     code = "RESOURCE_NOT_FOUND"

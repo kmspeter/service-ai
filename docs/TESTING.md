@@ -910,6 +910,16 @@ Phase 13 Unit 및 RAG 경계 검증:
 
 - Internal API 계약 통합 테스트
 
+Phase 14 Mock Backend 직접 호출 검증:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests\unit\test_tools.py -q
+```
+
+Tool Input Schema에는 LLM이 선택할 `user_id`를 노출하지 않고, 테스트가 주입한
+`ToolExecutionContext`의 사용자/문서 Scope가 실제 Service 및 Backend Client 호출을 제한하는지
+확인한다. Agent의 Tool 선택은 이 Phase에서 검증하지 않는다.
+
 ---
 
 # 20. Agent Test

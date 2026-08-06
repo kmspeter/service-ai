@@ -41,7 +41,7 @@ VERIFIED
 | 11 | Document Summary | VERIFIED | Unit 26 + 실제 MinIO/Qdrant/Gemini E2E + 전체 Regression 통과 |
 | 12 | Query Rewrite | VERIFIED | Unit/RAG 19 + 실제 Gemini Prompt E2E + 전체 243 tests 통과 |
 | 13 | Context & Token Budget Manager | VERIFIED | Unit/RAG 35 + 전체 253 tests 통과 |
-| 14 | Tool Layer | NOT_STARTED | - |
+| 14 | Tool Layer | VERIFIED | Tool Unit 15 + 전체 290 tests + branch coverage 87.93% 통과 |
 | 15 | Agent Tool Calling | NOT_STARTED | - |
 | 16 | Usage Aggregation | NOT_STARTED | - |
 | 17 | WebSocket Event Model | NOT_STARTED | - |
@@ -54,7 +54,7 @@ VERIFIED
 ## 현재 Phase
 
 ```text
-Phase: 13
+Phase: 14
 Status: VERIFIED
 ```
 
@@ -62,33 +62,36 @@ Status: VERIFIED
 
 ## 구현 완료
 
-- Backend가 전달한 `Conversation Summary`와 `Recent Messages`만 가공하는 `ContextBudgetManager` 구현
-- `LLM_CONTEXT_WINDOW - LLM_MAX_OUTPUT_TOKENS`로 Output 공간을 먼저 예약하고 실제 입력 상한 확정
-- `MAX_RECENT_MESSAGES`와 Token Budget을 함께 적용해 가장 오래된 Message부터 제거하는 Sliding Window 구현
-- 잘리는 History를 bounded batch로 갱신하는 별도 Conversation Summary Prompt 구현
-- Summary Prompt에 입력 외 사실·수치·결론 추가 금지와 대화 내 지시 실행 금지 규칙 적용
-- Query Rewrite와 최종 RAG Answer가 동일한 압축 Conversation Context를 사용하도록 통합
-- Conversation Summary, Recent Messages, RAG Context, Current Question, Prompt, Output Reservation별 Token 계측 모델 구현
-- 최종 완성 Prompt 전체 Token을 다시 측정하고 Context Window 초과 시 LLM 호출 전 명시적 오류 처리
-- 남은 실제 Prompt 예산과 `MAX_CONTEXT_TOKENS`에 따라 RAG Chunk 수/첫 Chunk 길이를 제한
-- 생성·가공한 Summary와 실제 Recent Messages를 응답 내부 모델에 반환해 Backend가 원본/요약을 관리할 경계 유지
-- Conversation 원본 DB, Agent/Tool, WebSocket/API Contract 등 Phase 14 이후 기능은 구현하지 않음
+- LangChain `StructuredTool`로 변환 가능한 명시적 `ToolContract` 구현
+- 초기 Tool을 정확히 `search_documents`, `summarize_document`, `list_documents` 3개로 제한
+- 각 Tool의 Name, Description, Input Schema, Output Schema, Execution Function 고정
+- LLM 입력 Schema에서 `user_id`를 제거하고 Backend 검증 `ToolExecutionContext`에서
+  `request_id`, `user_id`, 문서 Scope를 주입
+- 제한된 문서 Scope 밖의 검색/요약 요청을 기존 Service 호출 전에 404 계열로 차단
+- `search_documents`가 Embedding/Qdrant 로직을 중복하지 않고 기존 `RetrievalService` 호출
+- `summarize_document`가 Direct/Hierarchical 전략을 포함한 기존 `DocumentSummaryService` 호출
+- `list_documents`가 Qdrant나 AI Server DB를 사용하지 않고 Backend Internal API
+  `GET /internal/documents`를 호출하도록 Port/HTTP Adapter 구현
+- 실제 Spring Backend 대신 Unit Test에서 `httpx.MockTransport` 기반 Mock Backend 사용
+- Backend Timeout, 연결/인증/일반 오류, 잘못된 응답을 공통 Application Error 경계로 표준화
+- Agent Tool 선택, Tool Loop, WebSocket 등 Phase 15 이후 기능은 구현하지 않음
 
 ---
 
 ## 검증
 
-- Phase 12 사전 상태 확인
-  - `docs/PROGRESS.md`: Phase 12 `VERIFIED`, Blocker 없음 확인
-- Context Budget Unit 및 RAG 경계 Integration
-  - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_context.py tests\unit\test_rag.py tests\unit\test_config.py tests\component\test_rag_pipeline.py -q`
-  - Result: PASS (`35 passed`)
-  - 2/20개 Message, 매우 긴 Message, 매우 큰 RAG, Summary 유/무, Window 근접,
-    Output Reservation, 최종 Prompt Token 재계산, overflow 사전 실패 검증
-- 전체 회귀
-  - Command: `.\.venv\Scripts\python.exe -m pytest -q`
-  - Result: PASS (`253 passed, 16 skipped`)
-  - 비용/외부 Infrastructure가 필요한 조건부 E2E는 비활성
+- Tool 직접 호출 Unit
+  - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_tools.py -q`
+  - Result: PASS (`15 passed`)
+  - Search 정상/빈 결과/다른 사용자 문서 Scope 차단/Qdrant 오류 검증
+  - Summary Direct/Hierarchical/문서 없음/문서 Scope 차단 검증
+  - List Mock Backend 정상/빈 목록/Timeout/500 오류 검증
+- 전체 회귀 및 Branch Coverage
+  - Command: `.\.venv\Scripts\python.exe -m pytest --cov=app --cov-branch --cov-report=term-missing -q`
+  - Result: PASS (`290 passed, 16 skipped`, total coverage `87.93%`)
+- 신규 Phase 14 모듈 타입 검사
+  - Command: `.\.venv\Scripts\python.exe -m mypy app\tools app\adapters\backend.py app\factories\backend.py app\models\tools.py app\ports\backend.py`
+  - Result: PASS
 - Command: `.\.venv\Scripts\python.exe -m ruff check .`
   - Result: PASS
 - Command: `.\.venv\Scripts\python.exe -m pip check`
@@ -106,28 +109,31 @@ Status: VERIFIED
 
 ## 미검증 항목
 
-- 실제 외부 LLM Provider를 사용한 Conversation Summary 생성은 Credential/비용이 필요한 조건부 검증으로 실행하지 않음.
-- Context 계산, 호출별 상한, RAG 통합은 결정적 Fake Provider로 검증 완료.
+- 실제 Spring Backend가 아직 없어 `list_documents` 실제 Internal API 계약 통합 테스트는 미실행.
+- 실제 Qdrant/MinIO/LLM Credential이 필요한 기존 조건부 E2E 16개는 전체 회귀에서 skip.
+- 저장소 전체 mypy는 Phase 14 변경과 무관한 기존 21개 오류로 통과하지 않으며,
+  Phase 14 신규 모듈 범위의 mypy는 통과.
 
 ---
 
 ## 변경 파일
 
-- `.env.example`
+- `.env.example`, `pyproject.toml`
 - `app/core/config.py`, `app/core/exceptions.py`
-- `app/models/context.py`, `app/models/rag.py`
-- `app/prompts/conversation_summary.py`, `app/prompts/rag.py`
-- `app/services/context.py`, `app/services/rag.py`, `app/services/rag_context.py`, `app/factories/rag.py`
-- `tests/unit/test_context.py`, `tests/unit/test_config.py`, `tests/unit/test_rag.py`
-- `tests/integration/rag/test_rag_pipeline.py`
-- `docs/TESTING.md`, `docs/PROGRESS.md`
+- `app/models/tools.py`, `app/ports/backend.py`
+- `app/adapters/backend.py`, `app/factories/backend.py`
+- `app/tools/__init__.py`, `app/tools/contracts.py`, `app/tools/execution.py`, `app/tools/schemas.py`
+- `tests/unit/test_tools.py`
+- `docs/ARCHITECTURE.md`, `docs/CONTRACTS.md`, `docs/FILE_STRUCTURE.md`, `docs/TESTING.md`,
+  `docs/PROGRESS.md`
 
 ---
 
 ## 다음 작업
 
-- Phase 13 필수 범위와 비용 없는 전체 회귀 검증이 완료되어 Phase 14 진행 가능.
-- 다음 Phase에서는 검증된 Service를 중복 구현하지 않고 Tool 경계로 노출한다.
+- Phase 14 필수 범위와 비용 없는 전체 회귀 검증이 완료되어 Phase 15 진행 가능.
+- 다음 Phase에서만 LLM Agent의 Tool 선택과 `MAX_AGENT_STEPS`/`MAX_TOOL_CALLS`를 구현한다.
+- 실제 Spring Backend가 준비되면 `list_documents` Internal API 계약 통합 테스트를 추가한다.
 
 ---
 

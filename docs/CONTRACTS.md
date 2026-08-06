@@ -636,6 +636,8 @@ Execution Function
 ```
 
 Tool 입력의 사용자/문서 Scope는 Backend가 전달한 검증된 실행 Context를 기준으로 제한한다.
+LangChain에 노출하는 Input Schema에는 `user_id`와 `request_id`를 포함하지 않는다.
+두 값과 허용 문서 Scope는 서버가 생성한 `ToolExecutionContext`에서 실행 함수에 주입한다.
 
 ---
 
@@ -656,12 +658,12 @@ AI Server → Qdrant
 ```json
 {
   "query": "Qdrant의 장점은?",
-  "user_id": "user-123",
   "document_ids": ["doc-001"]
 }
 ```
 
-`user_id`는 Agent가 임의 생성하는 값이 아니라 실행 Context에서 주입/제한되어야 한다.
+`document_ids`는 선택이며 실행 Context가 허용한 범위보다 넓힐 수 없다. `user_id`는 Agent가
+임의 생성하는 값이 아니라 실행 Context에서 주입/제한된다.
 
 ## Output 개념
 
@@ -699,10 +701,12 @@ AI Server → MinIO/Qdrant/LLM
 
 ```json
 {
-  "document_id": "doc-001",
-  "user_id": "user-123"
+  "document_id": "doc-001"
 }
 ```
+
+실행 Context에 문서 Allowlist가 있으면 `document_id`가 그 범위에 포함되어야 한다. Allowlist가
+없더라도 기존 Summary Service의 `user_id + document_id` Scope 조회를 유지한다.
 
 ## Output 개념
 
@@ -714,7 +718,7 @@ AI Server → MinIO/Qdrant/LLM
 }
 ```
 
-`strategy`는 구현 내부 진단/결과 표현용으로 `direct` 또는 hierarchical 계열을 사용할 수 있으며 최종 명칭은 코드 구현 시 고정한다.
+`strategy`는 `direct` 또는 `hierarchical`로 고정한다.
 
 ---
 
@@ -738,13 +742,25 @@ AI Server가 Qdrant를 사용자 문서 목록의 Source of Truth로 사용하�
 
 ## Input 개념
 
+LangChain Input Schema는 빈 Object `{}`다. `user_id`와 `request_id`는 실행 Context에서 Backend
+Client 호출에 주입된다.
+
+## Output 개념
+
 ```json
 {
-  "user_id": "user-123"
+  "documents": [
+    {
+      "document_id": "doc-001",
+      "filename": "guide.pdf",
+      "status": "COMPLETED"
+    }
+  ]
 }
 ```
 
-실제 Backend 계약은 Backend 구현 시 최종 동결한다.
+위 Tool Output Schema는 Phase 14 개발 계약이다. 실제 Backend HTTP 응답 계약은 Backend 구현 시
+최종 동결하며, AI Server는 Adapter에서 그 응답을 위 Tool Schema로 변환한다.
 
 ---
 

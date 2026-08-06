@@ -137,7 +137,7 @@ Prompt 변경이 Service 코드 변경과 가능한 한 독립적이어야 한�
 
 ## 4. 현재 코드 구조와 확장 경계
 
-Phase 13까지의 실제 구조다. Phase 14 이후 디렉터리는 해당 Phase에서 추가한다.
+Phase 14까지의 실제 구조다. Phase 15 이후 디렉터리는 해당 Phase에서 추가한다.
 
 ```text
 app/
@@ -169,7 +169,8 @@ app/
 │  ├─ rag.py
 │  ├─ summary.py
 │  ├─ query_rewrite.py
-│  └─ context.py
+│  ├─ context.py
+│  └─ tools.py
 │
 ├─ services/
 │  ├─ ingestion.py
@@ -194,6 +195,11 @@ app/
 ├─ chunking/
 │  └─ recursive.py
 │
+├─ tools/
+│  ├─ contracts.py              # 명시적 계약과 LangChain StructuredTool 변환
+│  ├─ execution.py              # 검증 Context에 바인딩된 세 실행 함수
+│  └─ schemas.py                # LLM-visible Input과 구조화 Output
+│
 ├─ ports/                        # Protocol 중심의 외부/Application 경계
 ├─ adapters/                     # 외부 SDK 타입과 오류 변환
 ├─ factories/                    # 기능별 객체 조립
@@ -201,8 +207,9 @@ app/
 ```
 
 `ApplicationContainer`는 현재 Service와 Infrastructure Resource를 조립하고, 자신이 생성한 객체만
-lifespan 종료 시 닫는다. 테스트나 수동 실행에서 주입한 객체는 호출자가 소유한다. Phase 14 이후 Tool,
-Agent, WebSocket Service도 이 조립 경계에 추가하며 `main.py`나 API 모듈에서 직접 Provider를 생성하지 않는다.
+lifespan 종료 시 닫는다. 테스트나 수동 실행에서 주입한 객체는 호출자가 소유한다. Phase 14 Tool은
+기존 Service/Backend Client를 주입받으며, Phase 15 이후 Agent와 WebSocket Service도 이 조립 경계에
+추가하고 `main.py`나 API 모듈에서 직접 Provider를 생성하지 않는다.
 
 ---
 

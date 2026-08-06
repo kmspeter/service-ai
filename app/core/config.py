@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, ge=1, le=65535)
     readiness_require_document_processing: bool = True
     document_status_max_entries: int = Field(default=10_000, ge=1, le=1_000_000)
+    backend_internal_url: AnyHttpUrl | None = None
+    backend_internal_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
 
     llm_provider: str | None = None
     llm_api_key: SecretStr | None = None
@@ -107,6 +109,7 @@ class Settings(BaseSettings):
         *llm_required_settings,
         "llm_context_window",
     )
+    backend_required_settings: ClassVar[tuple[str, ...]] = ("backend_internal_url",)
 
     @field_validator("chunk_overlap")
     @classmethod
@@ -229,6 +232,16 @@ class Settings(BaseSettings):
         return all(
             getattr(self, name, None) for name in self.summary_required_settings
         ) and self.has_llm_settings()
+
+    def validate_backend_settings(self) -> None:
+        """Validate the Backend Internal API boundary used by list_documents."""
+        self.validate_required_settings(
+            self.phase_required_settings + self.backend_required_settings
+        )
+
+    def has_backend_settings(self) -> bool:
+        """Return whether the Backend Internal API client can be constructed."""
+        return all(getattr(self, name, None) for name in self.backend_required_settings)
 
     def _selected_llm_api_key_field(self) -> str:
         provider = self.llm_provider.strip().lower() if self.llm_provider else ""
