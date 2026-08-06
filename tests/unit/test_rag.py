@@ -1,5 +1,10 @@
 import asyncio
 
+from app.models.query_rewrite import (
+    QueryRewriteRequest,
+    QueryRewriteResult,
+    QueryRewriteStatus,
+)
 from app.models.rag import RAGRequest
 from app.models.retrieval import RetrievalResult
 from app.ports.llm import LLMRequest, LLMResult, LLMUsage
@@ -44,6 +49,27 @@ class RecordingLLM:
         self.closed = True
 
 
+class RecordingQueryRewriter:
+    def __init__(self, rewritten_query: str | None = None) -> None:
+        self.rewritten_query = rewritten_query
+        self.request: QueryRewriteRequest | None = None
+
+    async def rewrite(self, request: QueryRewriteRequest) -> QueryRewriteResult:
+        self.request = request
+        rewritten_query = self.rewritten_query or request.current_message
+        rewritten = rewritten_query != request.current_message
+        return QueryRewriteResult(
+            original_query=request.current_message,
+            rewritten_query=rewritten_query,
+            was_rewritten=rewritten,
+            status=(
+                QueryRewriteStatus.REWRITTEN
+                if rewritten
+                else QueryRewriteStatus.SKIPPED_NO_CONTEXT
+            ),
+        )
+
+
 def _result(
     *,
     chunk_id: str = "chunk-001",
@@ -69,9 +95,10 @@ def _service(
     *,
     answer: str = "Qdrant는 dense vector search를 지원합니다.",
     max_context_tokens: int = 2_000,
-) -> tuple[RAGService, RecordingRetriever, RecordingLLM]:
+) -> tuple[RAGService, RecordingRetriever, RecordingLLM, RecordingQueryRewriter]:
     retrieval = RecordingRetriever(results)
     llm = RecordingLLM(answer)
+    query_rewriter = RecordingQueryRewriter()
     service = RAGService(
         retrieval=retrieval,
         llm=llm,
@@ -82,13 +109,14 @@ def _service(
             ),
             max_context_tokens=max_context_tokens,
         ),
+        query_rewriter=query_rewriter,
     )
-    return service, retrieval, llm
+    return service, retrieval, llm, query_rewriter
 
 
 def test_grounded_answer_uses_retrieved_chunk_and_application_citation() -> None:
     result = _result()
-    service, retrieval, llm = _service((result,))
+    service, retrieval, llm, _ = _service((result,))
 
     response = asyncio.run(
         service.answer(
@@ -120,7 +148,7 @@ def test_grounded_answer_uses_retrieved_chunk_and_application_citation() -> None
 
 
 def test_no_retrieval_evidence_returns_safe_answer_without_llm_or_citation() -> None:
-    service, _, llm = _service(())
+    service, _, llm, _ = _service(())
 
     response = asyncio.run(
         service.answer(
@@ -150,7 +178,7 @@ def test_citations_are_deduplicated_and_cannot_be_forged_by_llm_output() -> None
         section="검색",
         content="검색 결과는 score 내림차순으로 정렬됩니다.",
     )
-    service, _, _ = _service(
+    service, _, _, _ = _service(
         (first, first, second),
         answer="답변입니다. [가짜 출처: doc-fake, page 999]",
     )
@@ -201,7 +229,7 @@ def test_context_builder_caps_context_and_excludes_chunks_that_do_not_fit() -> N
         document_id="doc-002",
         content="이 문장은 context budget 때문에 포함되면 안 됩니다.",
     )
-    service, _, llm = _service((first, second), max_context_tokens=128)
+    service, _, llm, _ = _service((first, second), max_context_tokens=128)
 
     response = asyncio.run(
         service.answer(
@@ -221,9 +249,35 @@ def test_context_builder_caps_context_and_excludes_chunks_that_do_not_fit() -> N
 
 
 def test_rag_service_closes_retrieval_and_llm_dependencies() -> None:
-    service, retrieval, llm = _service(())
+    service, retrieval, llm, _ = _service(())
 
     asyncio.run(service.close())
 
     assert retrieval.closed
     assert llm.closed
+
+
+def test_rewritten_query_is_used_only_for_retrieval() -> None:
+    result = _result()
+    service, retrieval, llm, query_rewriter = _service((result,))
+    query_rewriter.rewritten_query = "Qdrant의 장점은 무엇인가?"
+    original = "그럼 장점은?"
+
+    response = asyncio.run(
+        service.answer(
+            RAGRequest(
+                request_id="req-rewrite",
+                user_id="user-001",
+                question=original,
+                conversation_summary="Qdrant는 Vector DB이다.",
+            )
+        )
+    )
+
+    assert query_rewriter.request is not None
+    assert query_rewriter.request.current_message == original
+    assert retrieval.request.query == "Qdrant의 장점은 무엇인가?"
+    assert llm.request is not None
+    assert original in llm.request.content
+    assert response.query_rewrite.original_query == original
+    assert response.query_rewrite.was_rewritten is True

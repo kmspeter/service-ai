@@ -1,5 +1,6 @@
 import asyncio
 
+from app.models.query_rewrite import QueryRewriteRequest, QueryRewriteResult, QueryRewriteStatus
 from app.models.rag import RAGRequest
 from app.ports.embedding import EmbeddingBatchResult, EmbeddingUsage
 from app.ports.llm import LLMRequest, LLMResult, LLMUsage
@@ -67,6 +68,16 @@ class EvidenceAwareLLM:
         return None
 
 
+class NoContextQueryRewriter:
+    async def rewrite(self, request: QueryRewriteRequest) -> QueryRewriteResult:
+        return QueryRewriteResult(
+            original_query=request.current_message,
+            rewritten_query=request.current_message,
+            was_rewritten=False,
+            status=QueryRewriteStatus.SKIPPED_NO_CONTEXT,
+        )
+
+
 def _hit(*, chunk_id: str, document_id: str, page: int, score: float) -> VectorSearchHit:
     return VectorSearchHit(
         point_id=chunk_id,
@@ -102,6 +113,7 @@ def _service(hits: tuple[VectorSearchHit, ...]) -> tuple[RAGService, EvidenceAwa
                 ),
                 max_context_tokens=2_000,
             ),
+            query_rewriter=NoContextQueryRewriter(),
         ),
         llm,
     )

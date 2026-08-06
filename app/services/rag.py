@@ -1,5 +1,6 @@
 from typing import Protocol
 
+from app.models.query_rewrite import QueryRewriteRequest, QueryRewriteResult
 from app.models.rag import Citation, RAGRequest, RAGResponse
 from app.models.retrieval import RetrievalRequest, RetrievalResult
 from app.ports.llm import LLMRequest, LLMResult
@@ -19,6 +20,10 @@ class AnswerGenerator(Protocol):
     async def close(self) -> None: ...
 
 
+class QueryRewriter(Protocol):
+    async def rewrite(self, request: QueryRewriteRequest) -> QueryRewriteResult: ...
+
+
 class RAGService:
     """Run retrieval, bounded context construction, answer generation, and citation."""
 
@@ -28,17 +33,26 @@ class RAGService:
         retrieval: Retriever,
         llm: AnswerGenerator,
         context_builder: RAGContextBuilder,
+        query_rewriter: QueryRewriter,
     ) -> None:
         self._retrieval = retrieval
         self._llm = llm
         self._context_builder = context_builder
+        self._query_rewriter = query_rewriter
 
     async def answer(self, request: RAGRequest) -> RAGResponse:
+        query_rewrite = await self._query_rewriter.rewrite(
+            QueryRewriteRequest(
+                current_message=request.question,
+                conversation_summary=request.conversation_summary,
+                recent_messages=request.recent_messages,
+            )
+        )
         retrieval_results = await self._retrieval.retrieve(
             RetrievalRequest(
                 request_id=request.request_id,
                 user_id=request.user_id,
-                query=request.question,
+                query=query_rewrite.rewritten_query,
                 document_id=request.document_id,
                 document_ids=request.document_ids,
                 top_k=request.top_k,
@@ -46,11 +60,11 @@ class RAGService:
             )
         )
         if not retrieval_results:
-            return _insufficient_response(retrieval_results)
+            return _insufficient_response(retrieval_results, query_rewrite)
 
         context = self._context_builder.build(retrieval_results)
         if not context.results:
-            return _insufficient_response(retrieval_results)
+            return _insufficient_response(retrieval_results, query_rewrite)
 
         llm_result = await self._llm.generate(
             LLMRequest(
@@ -67,6 +81,7 @@ class RAGService:
             context_results=context.results,
             context_token_count=context.token_count,
             llm_result=llm_result,
+            query_rewrite=query_rewrite,
         )
 
     async def close(self) -> None:
@@ -76,6 +91,7 @@ class RAGService:
 
 def _insufficient_response(
     retrieval_results: tuple[RetrievalResult, ...],
+    query_rewrite: QueryRewriteResult,
 ) -> RAGResponse:
     return RAGResponse(
         answer=INSUFFICIENT_EVIDENCE_ANSWER,
@@ -84,6 +100,7 @@ def _insufficient_response(
         context_results=(),
         context_token_count=0,
         llm_result=None,
+        query_rewrite=query_rewrite,
     )
 
 

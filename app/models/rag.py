@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from app.models.query_rewrite import ConversationMessage, QueryRewriteResult
 from app.models.retrieval import RetrievalResult
 from app.ports.llm import LLMResult
 
@@ -15,6 +16,8 @@ class RAGRequest:
     document_ids: tuple[str, ...] = ()
     top_k: int | None = None
     score_threshold: float | None = None
+    conversation_summary: str | None = None
+    recent_messages: tuple[ConversationMessage, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,3 +41,4 @@ class RAGResponse:
     context_results: tuple[RetrievalResult, ...]
     context_token_count: int
     llm_result: LLMResult | None
+    query_rewrite: QueryRewriteResult

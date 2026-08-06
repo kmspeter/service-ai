@@ -747,6 +747,35 @@ User: 그럼 장점은?
 - 현재 질문 원문 유지
 - Retrieval Query만 독립 질문으로 재작성
 - Rewrite 결과로 Retrieval 가능
+- `그거`, `그럼`, `위 내용` 같은 문맥 의존 표현
+- 독립 질문의 과도한 Rewrite 방지
+- Conversation Context가 없을 때 LLM 호출 생략
+- Rewrite LLM 호출/출력 실패 시 원문 Query fallback
+
+호출 정책:
+
+- Conversation Summary와 Recent Messages가 모두 비어 있으면 LLM을 호출하지 않고 원문을 Retrieval에 사용한다.
+- 둘 중 하나라도 있으면 LLM이 Rewrite 필요 여부를 판단한다.
+- 결과는 `original_query`, `rewritten_query`, `was_rewritten`, `status`로 분리한다.
+
+Unit 및 RAG 경계 검증:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest `
+  tests\unit\test_query_rewrite.py `
+  tests\unit\test_rag.py `
+  tests\integration\rag\test_rag_pipeline.py -q
+```
+
+실제 LLM Provider Prompt E2E:
+
+```powershell
+$env:RUN_QUERY_REWRITE_INTEGRATION_TESTS='1'
+.\.venv\Scripts\python.exe -m pytest `
+  tests\integration\query_rewrite\test_query_rewrite_provider_integration.py -q
+```
+
+이 테스트는 외부 LLM Credential과 네트워크를 사용하며 API 비용이 발생할 수 있다.
 
 ---
 

@@ -3,6 +3,7 @@ from app.embedding import create_embedding_service
 from app.llm import create_llm_service
 from app.ports.qdrant import QdrantRepository
 from app.services.chunking import TokenCounter
+from app.services.query_rewrite import QueryRewriteService
 from app.services.rag import RAGService
 from app.services.rag_context import RAGContextBuilder
 from app.services.retrieval import RetrievalService
@@ -26,8 +27,13 @@ def create_rag_service(settings: Settings, qdrant: QdrantRepository) -> RAGServi
         ),
         max_context_tokens=settings.max_context_tokens,
     )
+    llm = create_llm_service(settings)
     return RAGService(
         retrieval=retrieval,
-        llm=create_llm_service(settings),
+        llm=llm,
         context_builder=context_builder,
+        query_rewriter=QueryRewriteService(
+            llm=llm,
+            max_output_tokens=settings.llm_max_output_tokens,
+        ),
     )
