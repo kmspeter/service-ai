@@ -8,35 +8,10 @@ from app.core.exceptions import (
     QdrantVectorDimensionMismatchError,
     UnknownEmbeddingModelError,
 )
-from app.embedding import create_embedding_service
-from app.ports.embedding import EmbeddingBatchResult, EmbeddingUsage
+from app.factories.embedding import create_embedding_service
 from app.ports.qdrant import CollectionInfo, VectorDistance
 from app.services.embedding import EmbeddingService
-
-
-class FakeEmbeddingProvider:
-    def __init__(self, dimension: int = 3) -> None:
-        self._dimension = dimension
-        self.texts = None
-        self.closed = False
-
-    @property
-    def dimension(self) -> int:
-        return self._dimension
-
-    async def embed(self, texts: tuple[str, ...]) -> EmbeddingBatchResult:
-        self.texts = texts
-        return EmbeddingBatchResult(
-            vectors=tuple((0.1, 0.2, 0.3) for _ in texts),
-            provider="fake",
-            model="fake-model",
-            dimension=self.dimension,
-            usage=EmbeddingUsage(input_tokens=2, total_tokens=2),
-            latency_ms=1,
-        )
-
-    async def close(self) -> None:
-        self.closed = True
+from tests.fakes import RecordingEmbeddingProvider
 
 
 class FakeQdrantRepository:
@@ -73,7 +48,7 @@ class FakeQdrantRepository:
 
 
 def test_embedding_service_supports_single_text_and_exposes_dimension() -> None:
-    provider = FakeEmbeddingProvider()
+    provider = RecordingEmbeddingProvider()
     service = EmbeddingService(provider)
 
     result = asyncio.run(service.embed_text("Qdrant는 Vector Database입니다."))
@@ -87,7 +62,7 @@ def test_embedding_service_supports_single_text_and_exposes_dimension() -> None:
 
 
 def test_embedding_service_supports_batch_texts() -> None:
-    provider = FakeEmbeddingProvider()
+    provider = RecordingEmbeddingProvider()
     service = EmbeddingService(provider)
 
     result = asyncio.run(service.embed_texts(["first", "second"]))
@@ -98,7 +73,7 @@ def test_embedding_service_supports_batch_texts() -> None:
 
 @pytest.mark.parametrize("texts", [[], [""], ["   "], ["valid", ""]])
 def test_empty_embedding_input_is_rejected_before_provider_call(texts) -> None:
-    provider = FakeEmbeddingProvider()
+    provider = RecordingEmbeddingProvider()
     service = EmbeddingService(provider)
 
     with pytest.raises(EmbeddingInputError):
@@ -108,7 +83,7 @@ def test_empty_embedding_input_is_rejected_before_provider_call(texts) -> None:
 
 
 def test_missing_qdrant_collection_is_created_with_embedding_dimension() -> None:
-    service = EmbeddingService(FakeEmbeddingProvider(dimension=3))
+    service = EmbeddingService(RecordingEmbeddingProvider(dimension=3))
     repository = FakeQdrantRepository(vector_size=None)
 
     collection = asyncio.run(
@@ -120,7 +95,7 @@ def test_missing_qdrant_collection_is_created_with_embedding_dimension() -> None
 
 
 def test_existing_qdrant_collection_with_matching_dimension_is_reused() -> None:
-    service = EmbeddingService(FakeEmbeddingProvider(dimension=3))
+    service = EmbeddingService(RecordingEmbeddingProvider(dimension=3))
     repository = FakeQdrantRepository(vector_size=3)
 
     collection = asyncio.run(
@@ -135,7 +110,7 @@ def test_existing_qdrant_collection_with_matching_dimension_is_reused() -> None:
 def test_incompatible_qdrant_collection_dimension_is_explicit_error(
     actual_dimension,
 ) -> None:
-    service = EmbeddingService(FakeEmbeddingProvider(dimension=3))
+    service = EmbeddingService(RecordingEmbeddingProvider(dimension=3))
     repository = FakeQdrantRepository(vector_size=actual_dimension)
     repository.exists = True
 

@@ -46,6 +46,7 @@ class Chunk:
     """Retrieval unit with source metadata required for later citations."""
 
     chunk_id: str
+    user_id: str | None
     document_id: str
     chunk_text: str
     filename: str

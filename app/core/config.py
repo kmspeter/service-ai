@@ -47,7 +47,7 @@ class Settings(BaseSettings):
         default=512, ge=1, le=100_000
     )
     max_recent_messages: int = Field(default=10, ge=1, le=1_000)
-    embedding_provider: Literal["deepinfra", "openai", "huggingface"] = "huggingface"
+    embedding_provider: Literal["deepinfra", "openai", "huggingface"] = "deepinfra"
     embedding_api_key: SecretStr | None = None
     deepinfra_api_key: SecretStr | None = None
     deepinfra_base_url: AnyHttpUrl | None = None

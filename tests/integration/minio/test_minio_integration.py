@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.adapters.minio import MinioStorageAdapter
+from app.adapters.minio import MinIOStorageAdapter
 from app.core.exceptions import (
     ExternalServiceAuthenticationError,
     ResourceNotFoundError,
@@ -20,7 +20,7 @@ pytestmark = [
 
 
 def _adapter(*, access_key: str | None = None, secret_key: str | None = None):
-    return MinioStorageAdapter(
+    return MinIOStorageAdapter(
         os.environ["MINIO_URL"],
         access_key=access_key or os.environ["MINIO_ACCESS_KEY"],
         secret_key=secret_key or os.environ["MINIO_SECRET_KEY"],

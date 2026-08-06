@@ -7,12 +7,12 @@ from app.models.query_rewrite import (
 )
 from app.models.rag import RAGRequest
 from app.models.retrieval import RetrievalResult
-from app.ports.llm import LLMRequest, LLMResult, LLMUsage
 from app.prompts.rag import INSUFFICIENT_EVIDENCE_ANSWER
 from app.services.chunking import TokenCounter
 from app.services.context import ContextBudgetManager
 from app.services.rag import RAGService
 from app.services.rag_context import RAGContextBuilder
+from tests.fakes import RecordingLLM
 
 
 class RecordingRetriever:
@@ -24,27 +24,6 @@ class RecordingRetriever:
     async def retrieve(self, request):
         self.request = request
         return self.results
-
-    async def close(self) -> None:
-        self.closed = True
-
-
-class RecordingLLM:
-    def __init__(self, answer: str = "Qdrant는 dense vector search를 지원합니다.") -> None:
-        self.answer = answer
-        self.request: LLMRequest | None = None
-        self.closed = False
-
-    async def generate(self, request: LLMRequest) -> LLMResult:
-        self.request = request
-        return LLMResult(
-            content=self.answer,
-            provider="fake",
-            model="fake-model",
-            usage=LLMUsage(input_tokens=100, output_tokens=10, total_tokens=110),
-            latency_ms=1,
-            status="COMPLETED",
-        )
 
     async def close(self) -> None:
         self.closed = True

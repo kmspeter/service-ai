@@ -37,7 +37,7 @@ _NOT_FOUND_CODES = {"NoSuchBucket", "NoSuchKey", "NoSuchObject", "NotFound"}
 _TIMEOUT_ERROR_CODES = {"RequestTimeout", "RequestTimeoutException"}
 
 
-class MinioStorageAdapter:
+class MinIOStorageAdapter:
     """Store original documents behind an S3-compatible storage boundary."""
 
     def __init__(

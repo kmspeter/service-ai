@@ -1,3 +1,5 @@
+"""Construct embedding services and their selected provider adapters."""
+
 from app.adapters.huggingface_embedding import HuggingFaceEmbeddingAdapter
 from app.adapters.openai_embedding import OpenAIEmbeddingAdapter
 from app.core.config import Settings

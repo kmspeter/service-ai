@@ -1,6 +1,8 @@
+"""Construct document-summary services."""
+
 from app.core.config import Settings
+from app.factories.llm import create_llm_service
 from app.infrastructure import InfrastructureClients
-from app.llm import create_llm_service
 from app.parsers.registry import create_default_parser_registry
 from app.services.chunking import RecursiveDocumentChunker, TokenCounter
 from app.services.summary import DocumentSummaryService, SummaryStrategySelector

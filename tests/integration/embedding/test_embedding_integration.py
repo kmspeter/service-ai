@@ -4,7 +4,7 @@ import os
 import pytest
 
 from app.core.config import Settings
-from app.embedding import create_embedding_service
+from app.factories.embedding import create_embedding_service
 
 pytestmark = [
     pytest.mark.embedding,

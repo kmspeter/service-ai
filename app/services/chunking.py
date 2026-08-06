@@ -57,13 +57,21 @@ class RecursiveDocumentChunker:
             strip_whitespace=False,
         )
 
-    def chunk(self, document: NormalizedDocument) -> ChunkingResult:
+    def chunk(
+        self,
+        document: NormalizedDocument,
+        *,
+        user_id: str | None = None,
+    ) -> ChunkingResult:
         """Create ordered chunks and statistics for a normalized document.
 
         Each ContentUnit is split independently. PDF chunks therefore never cross a
         page boundary, and Markdown chunks never cross a parser section boundary.
         Overlap applies only inside the same source unit.
         """
+        if user_id is not None and not user_id.strip():
+            raise ValueError("user_id must not be empty when provided")
+
         chunks: list[Chunk] = []
         for content_unit in document.content_units:
             if not content_unit.text:
@@ -74,7 +82,12 @@ class RecursiveDocumentChunker:
                 chunk_index = len(chunks)
                 chunks.append(
                     Chunk(
-                        chunk_id=_chunk_id(document.document_id, chunk_index),
+                        chunk_id=_chunk_id(
+                            user_id=user_id,
+                            document_id=document.document_id,
+                            chunk_index=chunk_index,
+                        ),
+                        user_id=user_id,
                         document_id=document.document_id,
                         chunk_text=chunk_text,
                         filename=document.filename,
@@ -107,5 +120,12 @@ def _load_encoding(model_name: str, encoding_name: str | None) -> Encoding:
         raise ValueError(f"No tokenizer is registered for {policy}") from exc
 
 
-def _chunk_id(document_id: str, chunk_index: int) -> str:
-    return str(uuid5(NAMESPACE_URL, f"service-ai:{document_id}:{chunk_index}"))
+def _chunk_id(*, user_id: str | None, document_id: str, chunk_index: int) -> str:
+    if user_id is None:
+        identity = f"document:{len(document_id)}:{document_id}:{chunk_index}"
+    else:
+        identity = (
+            f"user:{len(user_id)}:{user_id}:"
+            f"document:{len(document_id)}:{document_id}:{chunk_index}"
+        )
+    return str(uuid5(NAMESPACE_URL, f"service-ai:{identity}"))

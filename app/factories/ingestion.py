@@ -1,6 +1,8 @@
-from app.chunking import create_document_chunker
+"""Construct the document-ingestion pipeline."""
+
 from app.core.config import Settings
-from app.embedding import create_embedding_service
+from app.factories.chunking import create_document_chunker
+from app.factories.embedding import create_embedding_service
 from app.infrastructure import InfrastructureClients
 from app.parsers.registry import create_default_parser_registry
 from app.services.document_management import DocumentOperationLocks, DocumentStatusRegistry

@@ -6,7 +6,7 @@ import pytest
 
 from app.adapters.qdrant import QdrantAdapter
 from app.core.config import Settings
-from app.embedding import create_embedding_service
+from app.factories.embedding import create_embedding_service
 from app.models.retrieval import RetrievalRequest
 from app.ports.qdrant import VectorPoint
 from app.services.retrieval import RetrievalService

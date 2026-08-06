@@ -7,30 +7,8 @@ from app.models.query_rewrite import (
     QueryRewriteRequest,
     QueryRewriteStatus,
 )
-from app.ports.llm import LLMRequest, LLMResult, LLMUsage
 from app.services.query_rewrite import QueryRewriteService
-
-
-class RecordingRewriteLLM:
-    def __init__(self, content: str = "") -> None:
-        self.content = content
-        self.request: LLMRequest | None = None
-        self.calls = 0
-        self.error: Exception | None = None
-
-    async def generate(self, request: LLMRequest) -> LLMResult:
-        self.calls += 1
-        self.request = request
-        if self.error is not None:
-            raise self.error
-        return LLMResult(
-            content=self.content,
-            provider="fake",
-            model="fake-model",
-            usage=LLMUsage(input_tokens=20, output_tokens=8, total_tokens=28),
-            latency_ms=1,
-            status="COMPLETED",
-        )
+from tests.fakes import RecordingLLM
 
 
 def _rewrite(
@@ -40,7 +18,7 @@ def _rewrite(
     summary: str | None = None,
     messages: tuple[ConversationMessage, ...] = (),
 ):
-    llm = RecordingRewriteLLM(llm_output)
+    llm = RecordingLLM(llm_output)
     result = asyncio.run(
         QueryRewriteService(llm=llm).rewrite(
             QueryRewriteRequest(
@@ -139,7 +117,7 @@ def test_conversation_summary_alone_is_rewrite_context() -> None:
 
 def test_llm_failure_falls_back_to_exact_original_query() -> None:
     original = "그럼 장점은?"
-    llm = RecordingRewriteLLM()
+    llm = RecordingLLM("")
     llm.error = RuntimeError("provider failed")
     request = QueryRewriteRequest(
         current_message=original,
@@ -180,7 +158,7 @@ def test_invalid_or_excessive_llm_output_falls_back(invalid_output: str) -> None
 
 
 def test_empty_current_message_is_rejected_before_llm_call() -> None:
-    llm = RecordingRewriteLLM()
+    llm = RecordingLLM("")
 
     with pytest.raises(ValueError, match="current_message"):
         asyncio.run(

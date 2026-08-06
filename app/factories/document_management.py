@@ -1,3 +1,5 @@
+"""Construct document-management services."""
+
 from app.core.config import Settings
 from app.infrastructure import InfrastructureClients
 from app.services.document_management import (

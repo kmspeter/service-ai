@@ -1,5 +1,4 @@
 import asyncio
-from collections.abc import Callable
 
 import pytest
 
@@ -9,9 +8,10 @@ from app.core.exceptions import (
 )
 from app.models.summary import SummaryRequest, SummaryStrategy
 from app.parsers.registry import create_default_parser_registry
-from app.ports.llm import LLMRequest, LLMResult, LLMUsage
+from app.ports.llm import LLMRequest, LLMResult
 from app.services.chunking import RecursiveDocumentChunker, TokenCounter
 from app.services.summary import DocumentSummaryService, SummaryStrategySelector
+from tests.fakes import RecordingLLM
 
 
 class SummaryQdrant:
@@ -39,38 +39,9 @@ class SummaryStorage:
             raise ResourceNotFoundError("object") from exc
 
 
-class RecordingSummaryLLM:
-    def __init__(
-        self,
-        response: str | Callable[[LLMRequest, int], str] = "요약 결과",
-    ) -> None:
-        self.response = response
-        self.requests: list[LLMRequest] = []
-        self.closed = False
-
-    async def generate(self, request: LLMRequest) -> LLMResult:
-        self.requests.append(request)
-        content = (
-            self.response(request, len(self.requests))
-            if callable(self.response)
-            else self.response
-        )
-        return LLMResult(
-            content=content,
-            provider="fake",
-            model="fake-model",
-            usage=LLMUsage(input_tokens=10, output_tokens=3, total_tokens=13),
-            latency_ms=1,
-            status="COMPLETED",
-        )
-
-    async def close(self) -> None:
-        self.closed = True
-
-
-class FailingSummaryLLM(RecordingSummaryLLM):
+class FailingSummaryLLM(RecordingLLM):
     def __init__(self, *, stage: str, occurrence: int = 1) -> None:
-        super().__init__()
+        super().__init__("요약 결과")
         self.stage = stage
         self.occurrence = occurrence
         self.stage_calls = 0
@@ -93,10 +64,10 @@ def _token_counter() -> TokenCounter:
 def _service(
     content: str,
     *,
-    llm: RecordingSummaryLLM | None = None,
+    llm: RecordingLLM | None = None,
     payload: dict[str, object] | None | object = ...,
     context_window: int = 512,
-) -> tuple[DocumentSummaryService, SummaryQdrant, SummaryStorage, RecordingSummaryLLM]:
+) -> tuple[DocumentSummaryService, SummaryQdrant, SummaryStorage, RecordingLLM]:
     token_counter = _token_counter()
     actual_payload = (
         {
@@ -111,7 +82,7 @@ def _service(
     storage = SummaryStorage(
         {"users/user-001/documents/doc-001/original.txt": content.encode("utf-8")}
     )
-    generator = llm or RecordingSummaryLLM()
+    generator = llm or RecordingLLM("요약 결과")
     service = DocumentSummaryService(
         storage=storage,
         qdrant=qdrant,
@@ -166,7 +137,7 @@ def test_large_document_maps_chunks_then_creates_final_summary() -> None:
             return "최종 계층 요약"
         raise AssertionError("unexpected summary stage")
 
-    llm = RecordingSummaryLLM(respond)
+    llm = RecordingLLM(respond)
     service, _, _, _ = _service("alpha " * 320, llm=llm)
 
     result = asyncio.run(service.summarize(_request()))
@@ -191,7 +162,7 @@ def test_hierarchical_summary_adds_intermediate_reduce_when_needed() -> None:
             return "다단계 최종 요약"
         raise AssertionError("unexpected summary stage")
 
-    llm = RecordingSummaryLLM(respond)
+    llm = RecordingLLM(respond)
     service, _, _, _ = _service("alpha " * 500, llm=llm)
 
     result = asyncio.run(service.summarize(_request()))

@@ -429,3 +429,15 @@ Private Network/Internal Credential/mTLS/Gateway 등으로 보호 가능한 구�
 내부 Service와 개발 검증은 요청별 Override를 허용하되 설정과 동일한 범위 검증을 적용한다.
 모든 검색은 `user_id`를 필수 Filter로 사용하며 문서 범위가 지정된 경우에만
 `document_id` 또는 `document_ids` Filter를 추가한다.
+
+---
+
+## D032 — Qdrant Point ID는 사용자 범위를 포함한 결정적 UUID다
+
+**Decision**
+
+Qdrant Point의 `id`와 payload의 `chunk_id`에는 같은 UUID5 문자열을 사용한다.
+UUID5 입력은 길이로 구분한 `user_id + document_id + chunk_index` 조합으로 구성한다.
+
+같은 사용자의 같은 문서를 같은 Chunk 설정으로 재처리하면 ID가 유지되고,
+서로 다른 사용자가 같은 `document_id`를 사용해도 Point ID가 충돌하지 않는다.

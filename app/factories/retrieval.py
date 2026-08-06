@@ -1,5 +1,7 @@
+"""Construct dense retrieval services."""
+
 from app.core.config import Settings
-from app.embedding import create_embedding_service
+from app.factories.embedding import create_embedding_service
 from app.infrastructure import InfrastructureClients
 from app.services.retrieval import RetrievalService
 

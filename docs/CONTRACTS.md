@@ -213,6 +213,10 @@ id = chunk_id
 vector = embedding_vector
 ```
 
+`chunk_id`는 길이로 구분한 `user_id + document_id + chunk_index`를 UUID5 입력으로
+사용해 결정적으로 생성한다. 따라서 같은 범위의 재처리에서는 유지되고 사용자 범위가
+다르면 같은 `document_id`와 `chunk_index`라도 서로 다른 ID가 된다.
+
 Payload 최소 필드:
 
 ```json

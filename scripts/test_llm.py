@@ -3,7 +3,7 @@ import json
 from dataclasses import asdict
 
 from app.core.config import get_settings
-from app.llm import create_llm_service
+from app.factories.llm import create_llm_service
 from app.ports.llm import LLMRequest
 
 _QUESTION = "대한민국의 수도를 한 문장으로 답해줘."

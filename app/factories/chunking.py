@@ -1,3 +1,5 @@
+"""Construct chunking services from application settings."""
+
 from app.core.config import Settings
 from app.services.chunking import RecursiveDocumentChunker, TokenCounter
 

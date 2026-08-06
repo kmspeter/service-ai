@@ -16,6 +16,16 @@ def test_settings_load_from_environment(monkeypatch: pytest.MonkeyPatch) -> None
     assert settings.port == 8100
 
 
+def test_default_embedding_provider_matches_documented_deepinfra_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("EMBEDDING_PROVIDER", raising=False)
+
+    settings = Settings(_env_file=None)
+
+    assert settings.embedding_provider == "deepinfra"
+
+
 def test_invalid_setting_is_rejected() -> None:
     with pytest.raises(ValidationError):
         Settings(port=0, _env_file=None)

@@ -1,7 +1,7 @@
 import asyncio
 from dataclasses import dataclass
 
-from app.adapters.minio import MinioStorageAdapter
+from app.adapters.minio import MinIOStorageAdapter
 from app.adapters.qdrant import QdrantAdapter
 from app.core.config import Settings
 from app.ports.qdrant import QdrantRepository
@@ -35,7 +35,7 @@ def create_infrastructure_clients(settings: Settings) -> InfrastructureClients:
             api_key=qdrant_api_key,
             timeout_seconds=settings.qdrant_timeout_seconds,
         ),
-        storage=MinioStorageAdapter(
+        storage=MinIOStorageAdapter(
             str(settings.minio_url),
             access_key=settings.minio_access_key.get_secret_value(),
             secret_key=settings.minio_secret_key.get_secret_value(),

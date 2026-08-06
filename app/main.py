@@ -9,9 +9,9 @@ from app.core.config import Settings, get_settings
 from app.core.exceptions import ApplicationError, register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.request_context import RequestContextMiddleware
-from app.documents import create_document_management_service
+from app.factories.document_management import create_document_management_service
+from app.factories.ingestion import create_document_ingestion_service
 from app.infrastructure import InfrastructureClients, create_infrastructure_clients
-from app.ingestion import create_document_ingestion_service
 from app.services.document_management import (
     DocumentManagementService,
     DocumentOperationLocks,

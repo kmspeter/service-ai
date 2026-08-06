@@ -1,6 +1,8 @@
+"""Construct the pure RAG application service."""
+
 from app.core.config import Settings
-from app.embedding import create_embedding_service
-from app.llm import create_llm_service
+from app.factories.embedding import create_embedding_service
+from app.factories.llm import create_llm_service
 from app.ports.qdrant import QdrantRepository
 from app.services.chunking import TokenCounter
 from app.services.context import ContextBudgetManager

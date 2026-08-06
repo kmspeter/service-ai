@@ -5,10 +5,10 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.factories.summary import create_document_summary_service
 from app.infrastructure import create_infrastructure_clients
 from app.models.summary import SummaryRequest, SummaryStrategy
 from app.ports.qdrant import VectorPoint
-from app.summary import create_document_summary_service
 
 pytestmark = [
     pytest.mark.infrastructure,

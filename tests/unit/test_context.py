@@ -5,26 +5,10 @@ import pytest
 from app.core.exceptions import ContextBudgetError
 from app.models.query_rewrite import ConversationMessage
 from app.models.retrieval import RetrievalResult
-from app.ports.llm import LLMRequest, LLMResult, LLMUsage
 from app.services.chunking import TokenCounter
 from app.services.context import ContextBudgetManager
 from app.services.rag_context import RAGContextBuilder
-
-
-class RecordingSummaryLLM:
-    def __init__(self) -> None:
-        self.requests: list[LLMRequest] = []
-
-    async def generate(self, request: LLMRequest) -> LLMResult:
-        self.requests.append(request)
-        return LLMResult(
-            content="사용자는 Qdrant의 특징을 질문했고 관련 제약을 확인했다.",
-            provider="fake",
-            model="fake-model",
-            usage=LLMUsage(),
-            latency_ms=1,
-            status="COMPLETED",
-        )
+from tests.fakes import RecordingLLM
 
 
 def _counter() -> TokenCounter:
@@ -40,9 +24,9 @@ def _manager(
     reserved_output_tokens: int = 128,
     max_recent_messages: int = 6,
     max_rag_context_tokens: int = 2_000,
-) -> tuple[ContextBudgetManager, RecordingSummaryLLM, TokenCounter]:
+) -> tuple[ContextBudgetManager, RecordingLLM, TokenCounter]:
     counter = _counter()
-    llm = RecordingSummaryLLM()
+    llm = RecordingLLM("사용자는 Qdrant의 특징을 질문했고 관련 제약을 확인했다.")
     builder = RAGContextBuilder(
         token_counter=counter,
         max_context_tokens=max_rag_context_tokens,

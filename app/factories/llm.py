@@ -1,3 +1,5 @@
+"""Construct LLM services and their selected provider adapters."""
+
 from app.adapters.gemini import GeminiLLMAdapter
 from app.adapters.ollama import OllamaLLMAdapter
 from app.adapters.openai import OpenAILLMAdapter

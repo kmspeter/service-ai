@@ -5,8 +5,8 @@ from dataclasses import asdict
 
 from app.adapters.qdrant import QdrantAdapter
 from app.core.config import Settings
+from app.factories.rag import create_rag_service
 from app.models.rag import RAGRequest
-from app.rag import create_rag_service
 
 
 def _parser() -> argparse.ArgumentParser:

@@ -87,8 +87,8 @@ Phase 02 실제 Infrastructure Integration Test:
 $env:RUN_INFRASTRUCTURE_TESTS="1"
 $env:QDRANT_URL="http://localhost:6333"
 $env:MINIO_URL="http://localhost:9000"
-$env:MINIO_ACCESS_KEY="<local-development-access-key>"
-$env:MINIO_SECRET_KEY="<local-development-secret-key>"
+$env:MINIO_ACCESS_KEY="service-ai-local"
+$env:MINIO_SECRET_KEY="service-ai-local-pw"
 .\.venv\Scripts\python.exe -m pytest tests/integration/qdrant tests/integration/minio -q
 ```
 

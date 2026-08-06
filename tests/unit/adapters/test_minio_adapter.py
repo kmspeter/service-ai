@@ -4,7 +4,7 @@ import pytest
 from minio.error import S3Error
 from urllib3.exceptions import ReadTimeoutError
 
-from app.adapters.minio import MinioStorageAdapter
+from app.adapters.minio import MinIOStorageAdapter
 from app.core.exceptions import (
     ExternalServiceAuthenticationError,
     ExternalServiceTimeoutError,
@@ -12,7 +12,7 @@ from app.core.exceptions import (
 )
 
 
-class FailingMinioClient:
+class FailingMinIOClient:
     def __init__(self, error: Exception) -> None:
         self.error = error
 
@@ -42,12 +42,12 @@ def _s3_error(code: str) -> S3Error:
     ],
 )
 def test_minio_sdk_errors_are_translated(sdk_error, expected_error) -> None:
-    adapter = MinioStorageAdapter(
+    adapter = MinIOStorageAdapter(
         "http://minio.test:9000",
         access_key="test-access-key",
         secret_key="test-secret-key",
         bucket_name="test-documents",
-        client=FailingMinioClient(sdk_error),
+        client=FailingMinIOClient(sdk_error),
     )
 
     with pytest.raises(expected_error):
@@ -55,12 +55,12 @@ def test_minio_sdk_errors_are_translated(sdk_error, expected_error) -> None:
 
 
 def test_missing_minio_object_is_translated() -> None:
-    adapter = MinioStorageAdapter(
+    adapter = MinIOStorageAdapter(
         "http://minio.test:9000",
         access_key="test-access-key",
         secret_key="test-secret-key",
         bucket_name="test-documents",
-        client=FailingMinioClient(_s3_error("NoSuchKey")),
+        client=FailingMinIOClient(_s3_error("NoSuchKey")),
     )
 
     with pytest.raises(ResourceNotFoundError):

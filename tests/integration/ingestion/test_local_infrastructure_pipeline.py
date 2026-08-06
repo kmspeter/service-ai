@@ -10,8 +10,8 @@ from fastapi.testclient import TestClient
 from minio import Minio
 from qdrant_client import QdrantClient, models
 
-from app.chunking import create_document_chunker
 from app.core.config import Settings
+from app.factories.chunking import create_document_chunker
 from app.infrastructure import create_infrastructure_clients
 from app.main import create_app
 from app.parsers.registry import create_default_parser_registry

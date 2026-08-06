@@ -6,10 +6,10 @@ import pytest
 
 from app.adapters.qdrant import QdrantAdapter
 from app.core.config import Settings
-from app.embedding import create_embedding_service
+from app.factories.embedding import create_embedding_service
+from app.factories.rag import create_rag_service
 from app.models.rag import RAGRequest
 from app.ports.qdrant import VectorPoint
-from app.rag import create_rag_service
 
 pytestmark = [
     pytest.mark.infrastructure,

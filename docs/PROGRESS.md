@@ -117,7 +117,7 @@ Status: VERIFIED
 - `app/core/config.py`, `app/core/exceptions.py`
 - `app/models/context.py`, `app/models/rag.py`
 - `app/prompts/conversation_summary.py`, `app/prompts/rag.py`
-- `app/services/context.py`, `app/services/rag.py`, `app/services/rag_context.py`, `app/rag.py`
+- `app/services/context.py`, `app/services/rag.py`, `app/services/rag_context.py`, `app/factories/rag.py`
 - `tests/unit/test_context.py`, `tests/unit/test_config.py`, `tests/unit/test_rag.py`
 - `tests/integration/rag/test_rag_pipeline.py`
 - `docs/TESTING.md`, `docs/PROGRESS.md`
@@ -168,6 +168,49 @@ Status: VERIFIED
 ### 미검증/남은 문제
 
 - 없음. 비용/Infrastructure가 필요한 기존 조건부 E2E 16개는 기본 전체 회귀에서 skip됨.
+
+### 다음 Phase
+
+- Phase 14 진행 가능.
+
+---
+
+## Phase 14 사전 구조 정비
+
+```text
+Status: VERIFIED
+```
+
+### 구현 완료
+
+- Qdrant Point/Chunk ID를 길이 구분한 `user_id + document_id + chunk_index` UUID5로 생성해
+  동일 `document_id`를 사용하는 사용자 사이의 Point ID 충돌 제거
+- 로컬 MinIO Credential 예시와 테스트 문서를 `service-ai-local` /
+  `service-ai-local-pw`로 통일
+- 코드 기본 Embedding Provider를 문서 및 `.env.example`과 동일한 DeepInfra로 수정
+- 조립 전용 모듈을 `app/factories/`로 이동하고 `MinIOStorageAdapter` 표기 통일
+- Ingestion의 읽기/파싱/청킹 준비 단계와 임베딩 Batch/측정/Point 조립, Summary의 실행 전략,
+  Context의 대화 압축 책임을 각각 별도 모듈로 분리
+- Query Rewrite/Context/RAG/Summary의 LLM Fake와 Embedding/Ingestion의 Embedding Fake를
+  `tests/fakes.py`로 통합
+- `docs/FILE_STRUCTURE.md`를 Phase 13 실제 파일 구조와 기본 Provider 정책에 맞게 갱신
+- Phase 14 이후 기능은 선행 구현하지 않음
+
+### 검증
+
+- Command: `.\.venv\Scripts\python.exe -m pytest -q`
+  - Result: PASS (`260 passed, 16 skipped`)
+- Command: `.\.venv\Scripts\python.exe -m ruff check .`
+  - Result: PASS
+- Command: `.\.venv\Scripts\python.exe -m pip check`
+  - Result: PASS (`No broken requirements found`)
+- Command: `git diff --check`
+  - Result: PASS
+
+### 미검증/남은 문제
+
+- 외부 Credential 또는 로컬 Qdrant/MinIO가 필요한 조건부 E2E 16개는 기본 전체 회귀에서 skip됨.
+- Phase 14 Tool Layer는 아직 시작하지 않음.
 
 ### 다음 Phase
 

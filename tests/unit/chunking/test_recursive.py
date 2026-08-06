@@ -4,8 +4,8 @@ from pathlib import Path
 import pytest
 import tiktoken
 
-from app.chunking import create_document_chunker
 from app.core.config import Settings
+from app.factories.chunking import create_document_chunker
 from app.models.document import ContentUnit, NormalizedDocument, ParserInput
 from app.parsers.markdown import MarkdownParser
 from app.parsers.pdf import PdfParser
@@ -152,6 +152,26 @@ def test_chunk_ids_are_unique_and_deterministic() -> None:
 
     assert len(chunk_ids) == len(set(chunk_ids))
     assert chunk_ids == [chunk.chunk_id for chunk in second.chunks]
+
+
+def test_chunk_ids_are_scoped_by_user_for_the_same_document() -> None:
+    chunker = _chunker(chunk_size=5, chunk_overlap=1)
+    document = _document(
+        "one two three four five six seven eight nine ten",
+        document_id="shared-document-id",
+    )
+
+    first_user = chunker.chunk(document, user_id="user-001")
+    same_user_again = chunker.chunk(document, user_id="user-001")
+    second_user = chunker.chunk(document, user_id="user-002")
+
+    assert [chunk.chunk_id for chunk in first_user.chunks] == [
+        chunk.chunk_id for chunk in same_user_again.chunks
+    ]
+    assert {chunk.chunk_id for chunk in first_user.chunks}.isdisjoint(
+        chunk.chunk_id for chunk in second_user.chunks
+    )
+    assert all(chunk.user_id == "user-001" for chunk in first_user.chunks)
 
 
 def test_token_count_uses_model_tokenizer_not_character_length() -> None:

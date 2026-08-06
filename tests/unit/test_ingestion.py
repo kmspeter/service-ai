@@ -15,11 +15,11 @@ from app.models.ingestion import (
     DocumentProcessingStatus,
 )
 from app.parsers.registry import create_default_parser_registry
-from app.ports.embedding import EmbeddingBatchResult, EmbeddingUsage
 from app.ports.qdrant import CollectionInfo, VectorDistance, VectorPoint
 from app.services.chunking import RecursiveDocumentChunker, TokenCounter
 from app.services.embedding import EmbeddingService
 from app.services.ingestion import DocumentIngestionService
+from tests.fakes import RecordingEmbeddingProvider
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "documents"
 
@@ -33,35 +33,6 @@ class MemoryStorage:
             return self.objects[object_name]
         except KeyError as exc:
             raise ResourceNotFoundError("minio_object") from exc
-
-
-class FakeEmbeddingProvider:
-    def __init__(
-        self, *, error: Exception | None = None, fail_on_call: int = 1
-    ) -> None:
-        self.error = error
-        self.fail_on_call = fail_on_call
-        self.calls: list[tuple[str, ...]] = []
-
-    @property
-    def dimension(self) -> int:
-        return 3
-
-    async def embed(self, texts: tuple[str, ...]) -> EmbeddingBatchResult:
-        self.calls.append(texts)
-        if self.error and len(self.calls) == self.fail_on_call:
-            raise self.error
-        return EmbeddingBatchResult(
-            vectors=tuple((0.1, 0.2, 0.3) for _ in texts),
-            provider="fake",
-            model="fake-model",
-            dimension=3,
-            usage=EmbeddingUsage(input_tokens=len(texts), total_tokens=len(texts)),
-            latency_ms=1,
-        )
-
-    async def close(self) -> None:
-        return None
 
 
 class MemoryQdrant:
@@ -102,12 +73,12 @@ class MemoryQdrant:
 def _service(
     storage: MemoryStorage,
     *,
-    embedding_provider: FakeEmbeddingProvider | None = None,
+    embedding_provider: RecordingEmbeddingProvider | None = None,
     qdrant: MemoryQdrant | None = None,
     chunk_size: int = 50,
     batch_size: int = 100,
-) -> tuple[DocumentIngestionService, FakeEmbeddingProvider, MemoryQdrant]:
-    provider = embedding_provider or FakeEmbeddingProvider()
+) -> tuple[DocumentIngestionService, RecordingEmbeddingProvider, MemoryQdrant]:
+    provider = embedding_provider or RecordingEmbeddingProvider()
     repository = qdrant or MemoryQdrant()
     settings = Settings(
         environment="test",
@@ -253,7 +224,7 @@ def test_empty_document_policy_returns_failed_without_empty_point() -> None:
 def test_embedding_failure_never_writes_partial_document() -> None:
     key = "documents/doc-001/sample.txt"
     content = ("one two three four five six seven eight " * 20).encode()
-    provider = FakeEmbeddingProvider(
+    provider = RecordingEmbeddingProvider(
         error=EmbeddingProviderServerError("fake"), fail_on_call=2
     )
     service, _, qdrant = _service(

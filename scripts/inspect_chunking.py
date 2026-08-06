@@ -3,8 +3,8 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from app.chunking import create_document_chunker
 from app.core.config import get_settings
+from app.factories.chunking import create_document_chunker
 from app.models.document import ParserInput
 from app.parsers.registry import create_default_parser_registry
 
@@ -15,6 +15,7 @@ def _arguments() -> argparse.Namespace:
     )
     parser.add_argument("input_file", type=Path)
     parser.add_argument("--document-id", default="development-document")
+    parser.add_argument("--user-id", default="development-user")
     return parser.parse_args()
 
 
@@ -30,7 +31,7 @@ def _main() -> None:
             content=input_file.read_bytes(),
         )
     )
-    result = chunker.chunk(document)
+    result = chunker.chunk(document, user_id=arguments.user_id)
     output = {
         "document_id": document.document_id,
         "filename": document.filename,

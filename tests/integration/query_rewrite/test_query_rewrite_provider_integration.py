@@ -4,7 +4,7 @@ import os
 import pytest
 
 from app.core.config import Settings
-from app.llm import create_llm_service
+from app.factories.llm import create_llm_service
 from app.models.query_rewrite import (
     ConversationMessage,
     QueryRewriteRequest,
