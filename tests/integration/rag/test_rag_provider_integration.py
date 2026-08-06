@@ -10,6 +10,7 @@ from app.factories.embedding import create_embedding_service
 from app.factories.rag import create_rag_service
 from app.models.rag import RAGRequest
 from app.ports.qdrant import VectorPoint
+from app.services.vector_collection import ensure_vector_collection
 
 pytestmark = [
     pytest.mark.infrastructure,
@@ -57,7 +58,11 @@ def test_real_embedding_qdrant_and_llm_pure_rag_pipeline() -> None:
         )
         try:
             vector = (await indexing_embedding.embed_text(evidence)).vector
-            await indexing_embedding.ensure_qdrant_collection(qdrant, collection_name)
+            await ensure_vector_collection(
+                qdrant,
+                collection_name,
+                expected_dimension=indexing_embedding.dimension,
+            )
             await qdrant.replace_document_points(
                 collection_name,
                 user_id="phase10-user",

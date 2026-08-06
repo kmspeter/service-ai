@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     host: str = "127.0.0.1"
     port: int = Field(default=8000, ge=1, le=65535)
+    readiness_require_document_processing: bool = True
+    document_status_max_entries: int = Field(default=10_000, ge=1, le=1_000_000)
 
     llm_provider: str | None = None
     llm_api_key: SecretStr | None = None
@@ -54,8 +56,8 @@ class Settings(BaseSettings):
     hf_token: SecretStr | None = None
     embedding_model: str | None = None
     embedding_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
-    tokenizer_model: str = Field(default="text-embedding-3-small", min_length=1)
-    tokenizer_encoding: str | None = Field(default=None, min_length=1)
+    tokenizer_model: str = Field(default="Qwen/Qwen3-Embedding-8B", min_length=1)
+    tokenizer_encoding: str | None = Field(default="cl100k_base", min_length=1)
     chunk_size: int = Field(default=800, ge=1, le=1_000_000)
     chunk_overlap: int = Field(default=100, ge=0, le=999_999)
     embedding_batch_size: int = Field(default=32, ge=1, le=2_048)

@@ -2,13 +2,13 @@
 
 from app.core.config import Settings
 from app.factories.embedding import create_embedding_service
-from app.infrastructure import InfrastructureClients
+from app.infrastructure import InfrastructureResources
 from app.services.retrieval import RetrievalService
 
 
 def create_retrieval_service(
     settings: Settings,
-    infrastructure: InfrastructureClients,
+    infrastructure: InfrastructureResources,
 ) -> RetrievalService:
     """Build dense retrieval from configured embedding and Qdrant boundaries."""
     settings.validate_retrieval_settings()

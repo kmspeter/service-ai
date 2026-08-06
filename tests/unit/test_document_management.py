@@ -191,3 +191,27 @@ def test_registry_marks_processing_without_copying_backend_document_entity() -> 
     assert result is not None
     assert result.status is DocumentProcessingStatus.PROCESSING
     assert not hasattr(result, "storage_key")
+
+
+def test_registry_evicts_oldest_status_when_capacity_is_reached() -> None:
+    registry = DocumentStatusRegistry(max_entries=2)
+
+    async def scenario() -> tuple[object, object]:
+        for index in range(3):
+            await registry.record(
+                "user-001",
+                DocumentProcessingResult(
+                    request_id=f"req-{index}",
+                    document_id=f"doc-{index}",
+                    status=DocumentProcessingStatus.COMPLETED,
+                ),
+            )
+        return (
+            await registry.get(user_id="user-001", document_id="doc-0"),
+            await registry.get(user_id="user-001", document_id="doc-2"),
+        )
+
+    oldest, newest = asyncio.run(scenario())
+
+    assert oldest is None
+    assert newest is not None

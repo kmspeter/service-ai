@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
-from app.infrastructure import InfrastructureClients
+from app.infrastructure import InfrastructureResources
 from app.main import create_app
 from tests.fakes import FakeObjectStorage, FakeQdrantRepository
 
@@ -17,13 +17,14 @@ def test_settings() -> Settings:
         minio_secret_key="test-secret-key",
         minio_bucket="test-documents",
         minio_auto_create_bucket=False,
+        readiness_require_document_processing=False,
         _env_file=None,
     )
 
 
 @pytest.fixture
-def fake_infrastructure() -> InfrastructureClients:
-    return InfrastructureClients(
+def fake_infrastructure() -> InfrastructureResources:
+    return InfrastructureResources(
         qdrant=FakeQdrantRepository(),
         storage=FakeObjectStorage(),
     )
@@ -32,7 +33,7 @@ def fake_infrastructure() -> InfrastructureClients:
 @pytest.fixture
 def client(
     test_settings: Settings,
-    fake_infrastructure: InfrastructureClients,
+    fake_infrastructure: InfrastructureResources,
 ) -> TestClient:
     with TestClient(create_app(test_settings, fake_infrastructure)) as test_client:
         yield test_client

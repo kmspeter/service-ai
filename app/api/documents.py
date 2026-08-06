@@ -1,8 +1,10 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Path, Query, Request, Response, status
+from pydantic import AfterValidator
 
-from app.core.exceptions import DocumentStatusUnavailableError
+from app.core.exceptions import DocumentStatusUnavailableError, RequestIdMismatchError
+from app.core.request_context import bind_request_id, validate_request_id
 from app.models.ingestion import (
     DocumentDeleteFailureReason,
     DocumentDeleteResult,
@@ -13,14 +15,13 @@ from app.models.ingestion import (
     DocumentProcessingResult,
     DocumentProcessingStatus,
 )
+from app.ports.documents import DocumentIngestionPort, DocumentManagementPort
 from app.schemas.documents import (
     DocumentDeleteResponse,
     DocumentProcessingRequest,
     DocumentProcessingResponse,
     DocumentStatusResponse,
 )
-from app.services.document_management import DocumentManagementService
-from app.services.ingestion import DocumentIngestionService
 
 router = APIRouter(prefix="/internal", tags=["internal-documents"])
 
@@ -39,7 +40,17 @@ _FAILURE_HTTP_STATUS = {
 }
 
 _ScopedIdentifier = Annotated[str, Query(min_length=1, max_length=200)]
+_RequestId = Annotated[
+    str,
+    Query(min_length=1, max_length=200),
+    AfterValidator(validate_request_id),
+]
 _DocumentId = Annotated[str, Path(min_length=1, max_length=200)]
+
+
+def _bind_contract_request_id(request: Request, request_id: str) -> None:
+    if not bind_request_id(request, request_id):
+        raise RequestIdMismatchError
 
 
 @router.post("/documents", response_model=DocumentProcessingResponse)
@@ -48,7 +59,8 @@ async def process_document(
     request: Request,
     response: Response,
 ) -> DocumentProcessingResponse:
-    service: DocumentIngestionService | None = request.app.state.document_ingestion
+    _bind_contract_request_id(request, payload.request_id)
+    service: DocumentIngestionPort | None = request.app.state.container.document_ingestion
     context = DocumentProcessingContext(**payload.model_dump())
     if service is None:
         result = DocumentProcessingResult(
@@ -70,11 +82,11 @@ async def delete_document(
     document_id: _DocumentId,
     request: Request,
     response: Response,
-    request_id: _ScopedIdentifier,
+    request_id: _RequestId,
     user_id: _ScopedIdentifier,
 ) -> DocumentDeleteResponse:
-    request.state.request_id = request_id
-    service: DocumentManagementService | None = request.app.state.document_management
+    _bind_contract_request_id(request, request_id)
+    service: DocumentManagementPort | None = request.app.state.container.document_management
     context = DocumentOperationContext(
         request_id=request_id,
         user_id=user_id,
@@ -102,11 +114,11 @@ async def delete_document(
 async def get_document_status(
     document_id: _DocumentId,
     request: Request,
-    request_id: _ScopedIdentifier,
+    request_id: _RequestId,
     user_id: _ScopedIdentifier,
 ) -> DocumentStatusResponse:
-    request.state.request_id = request_id
-    service: DocumentManagementService | None = request.app.state.document_management
+    _bind_contract_request_id(request, request_id)
+    service: DocumentManagementPort | None = request.app.state.container.document_management
     if service is None:
         raise DocumentStatusUnavailableError
     result = await service.get_status(

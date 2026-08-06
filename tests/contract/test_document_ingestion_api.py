@@ -69,6 +69,7 @@ def test_internal_document_endpoint_returns_contract_result() -> None:
         "failure_reason": None,
     }
     assert ingestion.context.user_id == "user-001"
+    assert response.headers["X-Request-ID"] == "req-001"
 
 
 def test_pipeline_failure_returns_failed_body_and_stage_http_status() -> None:
@@ -112,3 +113,37 @@ def test_internal_document_request_requires_all_execution_context_fields() -> No
 
     assert response.status_code == 422
     assert response.json()["code"] == "VALIDATION_ERROR"
+
+
+def test_document_request_rejects_conflicting_header_request_id() -> None:
+    ingestion = StubDocumentIngestion(
+        DocumentProcessingResult(
+            request_id="req-body",
+            document_id="doc-001",
+            status=DocumentProcessingStatus.COMPLETED,
+        )
+    )
+    application = create_app(
+        Settings(environment="test", _env_file=None),
+        document_ingestion=ingestion,
+    )
+
+    with TestClient(application) as client:
+        response = client.post(
+            "/internal/documents",
+            headers={"X-Request-ID": "req-header"},
+            json={
+                "request_id": "req-body",
+                "user_id": "user-001",
+                "document_id": "doc-001",
+                "storage_key": "documents/doc-001/sample.txt",
+            },
+        )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "code": "REQUEST_ID_MISMATCH",
+        "message": "The request ID does not match the X-Request-ID header.",
+        "request_id": "req-header",
+    }
+    assert ingestion.context is None

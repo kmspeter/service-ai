@@ -163,6 +163,18 @@ def test_retrieval_settings_load_from_environment(monkeypatch: pytest.MonkeyPatc
     assert settings.max_context_tokens == 4096
 
 
+def test_runtime_boundary_settings_load_from_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("READINESS_REQUIRE_DOCUMENT_PROCESSING", "false")
+    monkeypatch.setenv("DOCUMENT_STATUS_MAX_ENTRIES", "321")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.readiness_require_document_processing is False
+    assert settings.document_status_max_entries == 321
+
+
 def test_summary_budget_settings_load_from_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

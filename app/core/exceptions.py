@@ -26,6 +26,11 @@ class ApplicationValidationError(ApplicationError):
     public_message = "The request is invalid."
 
 
+class RequestIdMismatchError(ApplicationValidationError):
+    code = "REQUEST_ID_MISMATCH"
+    public_message = "The request ID does not match the X-Request-ID header."
+
+
 class ExternalServiceError(ApplicationError):
     status_code = 502
     code = "EXTERNAL_SERVICE_ERROR"
@@ -108,7 +113,6 @@ class LLMAuthenticationError(LLMError):
 
 
 class LLMAuthorizationError(LLMError):
-    status_code = 403
     code = "LLM_AUTHORIZATION_FAILED"
     public_message = "The LLM provider request is not authorized."
 
@@ -169,7 +173,6 @@ class EmbeddingAuthenticationError(EmbeddingError):
 
 
 class EmbeddingAuthorizationError(EmbeddingError):
-    status_code = 403
     code = "EMBEDDING_AUTHORIZATION_FAILED"
     public_message = "The embedding provider request is not authorized."
 
@@ -230,6 +233,7 @@ class UnknownEmbeddingModelError(ApplicationValidationError):
 
 
 class QdrantVectorDimensionMismatchError(ApplicationError):
+    status_code = 503
     code = "QDRANT_VECTOR_DIMENSION_MISMATCH"
     public_message = "The Qdrant collection vector dimension is incompatible."
 
@@ -284,10 +288,6 @@ class CorruptedPdfError(PdfParsingError):
 class EncryptedPdfError(PdfParsingError):
     code = "PDF_ENCRYPTED"
     public_message = "Encrypted PDF documents are not supported."
-
-
-class InternalApplicationError(ApplicationError):
-    pass
 
 
 class DocumentStatusUnavailableError(ApplicationError):

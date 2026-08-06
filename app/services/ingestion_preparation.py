@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from time import perf_counter
 
+from app.chunking import RecursiveDocumentChunker
 from app.core.exceptions import (
     ApplicationError,
     CorruptedPdfError,
@@ -15,8 +16,7 @@ from app.models.document import ChunkingResult, ParserInput
 from app.models.ingestion import DocumentFailureReason, DocumentProcessingContext
 from app.parsers.registry import ParserRegistry
 from app.ports.storage import ObjectStorage
-from app.services.chunking import RecursiveDocumentChunker
-from app.services.ingestion_support import IngestionMeasurements, elapsed_ms
+from app.services.ingestion_components import IngestionMeasurements, elapsed_ms
 
 logger = logging.getLogger(__name__)
 

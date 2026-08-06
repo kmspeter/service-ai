@@ -14,7 +14,7 @@ from app.core.exceptions import (
     EmbeddingRateLimitError,
     EmbeddingTimeoutError,
 )
-from app.ports.embedding import EmbeddingBatchResult, EmbeddingUsage, EmbeddingVector
+from app.models.embedding import EmbeddingBatchResult, EmbeddingUsage, EmbeddingVector
 
 
 class OpenAIEmbeddingAdapter:

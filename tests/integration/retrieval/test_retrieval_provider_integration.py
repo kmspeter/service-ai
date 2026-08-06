@@ -10,6 +10,7 @@ from app.factories.embedding import create_embedding_service
 from app.models.retrieval import RetrievalRequest
 from app.ports.qdrant import VectorPoint
 from app.services.retrieval import RetrievalService
+from app.services.vector_collection import ensure_vector_collection
 
 pytestmark = [
     pytest.mark.infrastructure,
@@ -58,7 +59,11 @@ def test_real_embedding_provider_dense_retrieval_quality_and_scope() -> None:
         )
         try:
             vectors = (await embedding.embed_texts(passages)).vectors
-            await embedding.ensure_qdrant_collection(adapter, collection_name)
+            await ensure_vector_collection(
+                adapter,
+                collection_name,
+                expected_dimension=embedding.dimension,
+            )
             await adapter.replace_document_points(
                 collection_name,
                 user_id="user-001",

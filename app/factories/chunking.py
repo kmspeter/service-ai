@@ -1,7 +1,7 @@
 """Construct chunking services from application settings."""
 
+from app.chunking import RecursiveDocumentChunker, TokenCounter
 from app.core.config import Settings
-from app.services.chunking import RecursiveDocumentChunker, TokenCounter
 
 
 def create_document_chunker(settings: Settings) -> RecursiveDocumentChunker:

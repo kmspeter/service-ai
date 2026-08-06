@@ -12,10 +12,10 @@ from qdrant_client import QdrantClient, models
 
 from app.core.config import Settings
 from app.factories.chunking import create_document_chunker
-from app.infrastructure import create_infrastructure_clients
+from app.infrastructure import create_infrastructure_resources
 from app.main import create_app
+from app.models.embedding import EmbeddingBatchResult, EmbeddingUsage
 from app.parsers.registry import create_default_parser_registry
-from app.ports.embedding import EmbeddingBatchResult, EmbeddingUsage
 from app.services.embedding import EmbeddingService
 from app.services.ingestion import DocumentIngestionService
 
@@ -90,7 +90,7 @@ def test_http_pipeline_with_real_minio_qdrant_and_parser_errors() -> None:
         ),
         check_compatibility=False,
     )
-    infrastructure = create_infrastructure_clients(settings)
+    infrastructure = create_infrastructure_resources(settings)
     ingestion = DocumentIngestionService(
         storage=infrastructure.storage,
         parser_registry=create_default_parser_registry(),
@@ -160,8 +160,7 @@ def test_http_pipeline_with_real_minio_qdrant_and_parser_errors() -> None:
                 assert payload["document_id"] == document_id
                 assert payload["user_id"] == "phase07-user"
                 assert payload["filename"] == filename
-                assert isinstance(payload["page"], int)
-                assert payload["page"] >= 1
+                assert payload["page"] == (1 if filename.endswith(".pdf") else None)
                 assert payload["chunk_id"] == str(points[0].id)
                 assert payload["chunk_text"]
 

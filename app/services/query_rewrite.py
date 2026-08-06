@@ -1,16 +1,19 @@
 import json
+import logging
 from typing import Any, Protocol
 
+from app.core.exceptions import ApplicationError
+from app.models.llm import LLMRequest, LLMResult
 from app.models.query_rewrite import (
     QueryRewriteRequest,
     QueryRewriteResult,
     QueryRewriteStatus,
 )
-from app.ports.llm import LLMRequest, LLMResult
 from app.prompts.query_rewrite import build_query_rewrite_prompt
 
 _MAX_REWRITTEN_QUERY_CHARS = 500
 _DEFAULT_REWRITE_MAX_OUTPUT_TOKENS = 1_024
+logger = logging.getLogger(__name__)
 
 
 class RewriteGenerator(Protocol):
@@ -61,7 +64,16 @@ class QueryRewriteService:
                 )
             )
             rewritten, rewritten_query = _parse_rewrite_output(llm_result.content)
-        except Exception:
+        except (ApplicationError, ValueError, TypeError) as exc:
+            logger.warning(
+                "Query rewrite fallback",
+                extra={
+                    "request_id": request.request_id,
+                    "operation": "query_rewrite",
+                    "status": "fallback",
+                    "error_code": getattr(exc, "code", "INVALID_REWRITE_OUTPUT"),
+                },
+            )
             return _unchanged_result(
                 original_query,
                 status=QueryRewriteStatus.FALLBACK,

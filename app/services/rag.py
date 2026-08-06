@@ -1,10 +1,10 @@
 from typing import Protocol
 
 from app.models.context import ManagedConversation
+from app.models.llm import LLMRequest, LLMResult
 from app.models.query_rewrite import QueryRewriteRequest, QueryRewriteResult
 from app.models.rag import Citation, RAGRequest, RAGResponse
 from app.models.retrieval import RetrievalRequest, RetrievalResult
-from app.ports.llm import LLMRequest, LLMResult
 from app.prompts.rag import INSUFFICIENT_EVIDENCE_ANSWER
 from app.services.context import ContextBudgetManager
 
@@ -46,9 +46,11 @@ class RAGService:
             conversation_summary=request.conversation_summary,
             recent_messages=request.recent_messages,
             current_question=request.question,
+            request_id=request.request_id,
         )
         query_rewrite = await self._query_rewriter.rewrite(
             QueryRewriteRequest(
+                request_id=request.request_id,
                 current_message=request.question,
                 conversation_summary=conversation.summary,
                 recent_messages=conversation.recent_messages,

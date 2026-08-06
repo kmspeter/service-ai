@@ -3,8 +3,8 @@ import asyncio
 import pytest
 
 from app.core.exceptions import RetrievalInputError, RetrievalResultError
+from app.models.embedding import EmbeddingBatchResult, EmbeddingUsage
 from app.models.retrieval import RetrievalRequest
-from app.ports.embedding import EmbeddingBatchResult, EmbeddingUsage
 from app.ports.qdrant import VectorSearchHit
 from app.services.embedding import EmbeddingService
 from app.services.retrieval import RetrievalService

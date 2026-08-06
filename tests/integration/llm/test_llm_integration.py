@@ -5,7 +5,7 @@ import pytest
 
 from app.core.config import Settings
 from app.factories.llm import create_llm_service
-from app.ports.llm import LLMRequest
+from app.models.llm import LLMRequest
 
 pytestmark = pytest.mark.llm
 

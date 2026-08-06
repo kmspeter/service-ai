@@ -81,7 +81,7 @@ Status: VERIFIED
 - Phase 12 사전 상태 확인
   - `docs/PROGRESS.md`: Phase 12 `VERIFIED`, Blocker 없음 확인
 - Context Budget Unit 및 RAG 경계 Integration
-  - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_context.py tests\unit\test_rag.py tests\unit\test_config.py tests\integration\rag\test_rag_pipeline.py -q`
+  - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_context.py tests\unit\test_rag.py tests\unit\test_config.py tests\component\test_rag_pipeline.py -q`
   - Result: PASS (`35 passed`)
   - 2/20개 Message, 매우 긴 Message, 매우 큰 RAG, Summary 유/무, Window 근접,
     Output Reservation, 최종 Prompt Token 재계산, overflow 사전 실패 검증
@@ -215,6 +215,72 @@ Status: VERIFIED
 ### 다음 Phase
 
 - Phase 14 진행 가능.
+
+---
+
+## Phase 14~20 사전 구조 보완 (2026-08-06)
+
+```text
+Status: IMPLEMENTED
+```
+
+### 구현 완료
+
+- POST body/query의 `request_id`를 요청 Context, 구조화 로그, 응답 body와 `X-Request-ID`
+  응답 헤더에 통일하고, 다른 요청 헤더 값은 `REQUEST_ID_MISMATCH` 422로 거부
+- `/ready`에 문서 처리 Service 조립과 필수 Embedding 설정 확인을 추가해 Infrastructure만 정상인
+  불완전 상태의 200 응답 방지
+- JSON Formatter가 실제 호출부의 allowlist 구조화 필드를 보존하고 민감값을 마스킹하도록 보완
+- `ApplicationContainer` Composition Root, Resource 소유권, FastAPI lifespan 경계 및 공유 문서 Runtime
+  상태 도입
+- Query Rewrite/Conversation Summary fallback을 예상된 `ApplicationError`로 제한하고 구조화 warning을
+  남기며 예상 밖 오류는 전파
+- Chunking을 `app/chunking/`, Provider 중립 LLM/Embedding DTO를 `app/models/`, Protocol을
+  `app/ports/`로 분리하고 Runtime/Admin Port 책임 정리
+- `InfrastructureClients` 계열 명칭을 `InfrastructureResources`로, ingestion 보조 모듈을
+  `ingestion_components`로 통일
+- 문서 상태 Registry에 설정 가능한 상한(`DOCUMENT_STATUS_MAX_ENTRIES`)을 적용하고 오래된 항목 제거
+- `.env.example`에 readiness/상태 Registry 정책을 추가하고 tokenizer 기본값과 문서값 동기화
+- Qdrant Collection 정책을 Embedding Service에서 `vector_collection` Service로 분리하고 구형
+  모듈/수동 CLI/미사용 예외 제거
+- 직접 import하는 `anyio`, `pydantic`, `starlette`, `urllib3`를 명시적 런타임 의존성으로 등록하고
+  `mypy`, `pytest-cov`, `httpx2`를 개발 의존성으로 등록
+- `scripts/manual_*.py` 6개를 파일 상단 변수 수정 후 직접 `.py` 실행하는 형식으로 제공
+- 테스트를 `unit/component/contract/integration/smoke`로 재분류하고 Composition 소유권,
+  request_id, readiness, logging, fallback, Registry 상한, 수동 실행 회귀 추가
+- README와 `ARCHITECTURE.md`, `CONTRACTS.md`, `FILE_STRUCTURE.md`, `TESTING.md`,
+  `DECISIONS.md`를 실제 코드 구조와 계약에 맞게 동기화
+- Phase 14 Tool Layer 이후 기능은 선행 구현하지 않음
+
+### 검증
+
+- Command: `.\.venv\Scripts\python.exe -m pytest`
+  - Result: PASS (`275 passed, 16 skipped`)
+- Command: `.\.venv\Scripts\python.exe -m ruff check .`
+  - Result: PASS
+- Command: `.\.venv\Scripts\python.exe scripts\manual_chunking.py`
+  - Result: PASS (파일 상단 변수 기반 Parser/Chunking JSON 출력)
+- Command: `.\.venv\Scripts\python.exe -m compileall -q app scripts tests`
+  - Result: PASS
+- Command: `.\.venv\Scripts\python.exe -m pip check`
+  - Result: PASS (`No broken requirements found`)
+- Command: `git diff --check`
+  - Result: PASS
+
+### 미검증/남은 문제
+
+- 개발 의존성 동기화(`pip install -e ".[dev]"`)는 실행 환경의 승인 사용량 제한으로 완료하지 못함.
+  따라서 새 `mypy`와 branch coverage 80% gate는 아직 실행하지 않았으며 이 항목 때문에 상태를
+  `VERIFIED`로 올리지 않음.
+- 현재 가상환경에 `httpx2`가 아직 설치되지 않아 테스트는 Starlette의 `httpx` deprecation warning
+  1건을 출력한다. `pyproject.toml`에는 교체용 개발 의존성을 반영함.
+- 외부 Credential 또는 로컬 Infrastructure가 필요한 기존 조건부 E2E 16개는 기본 회귀에서 skip됨.
+
+### 다음 Phase
+
+- 기능 구조와 비용 없는 회귀 기준으로 Phase 14 진행 가능.
+- 개발 환경 의존성을 동기화한 뒤 `mypy`와 coverage 80%를 통과해야 본 구조 보완을 `VERIFIED`로
+  변경할 수 있음.
 
 ---
 

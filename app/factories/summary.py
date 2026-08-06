@@ -1,16 +1,17 @@
 """Construct document-summary services."""
 
+from app.chunking import RecursiveDocumentChunker, TokenCounter
 from app.core.config import Settings
 from app.factories.llm import create_llm_service
-from app.infrastructure import InfrastructureClients
+from app.infrastructure import InfrastructureResources
 from app.parsers.registry import create_default_parser_registry
-from app.services.chunking import RecursiveDocumentChunker, TokenCounter
-from app.services.summary import DocumentSummaryService, SummaryStrategySelector
+from app.services.summary import DocumentSummaryService
+from app.services.summary_execution import SummaryStrategySelector
 
 
 def create_document_summary_service(
     settings: Settings,
-    infrastructure: InfrastructureClients,
+    infrastructure: InfrastructureResources,
 ) -> DocumentSummaryService:
     """Build the Phase 11 service without exposing it as an Agent tool or API."""
     settings.validate_summary_settings()

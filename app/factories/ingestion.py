@@ -3,17 +3,16 @@
 from app.core.config import Settings
 from app.factories.chunking import create_document_chunker
 from app.factories.embedding import create_embedding_service
-from app.infrastructure import InfrastructureClients
+from app.infrastructure import InfrastructureResources
 from app.parsers.registry import create_default_parser_registry
-from app.services.document_management import DocumentOperationLocks, DocumentStatusRegistry
+from app.services.document_management import DocumentRuntimeState
 from app.services.ingestion import DocumentIngestionService
 
 
 def create_document_ingestion_service(
     settings: Settings,
-    infrastructure: InfrastructureClients,
-    status_registry: DocumentStatusRegistry | None = None,
-    operation_locks: DocumentOperationLocks | None = None,
+    infrastructure: InfrastructureResources,
+    runtime_state: DocumentRuntimeState,
 ) -> DocumentIngestionService:
     """Build the Phase 07 pipeline from configured ports and services."""
     settings.validate_ingestion_settings()
@@ -26,6 +25,6 @@ def create_document_ingestion_service(
         qdrant=infrastructure.qdrant,
         collection_name=settings.qdrant_collection,
         embedding_batch_size=settings.embedding_batch_size,
-        status_registry=status_registry,
-        operation_locks=operation_locks,
+        status_registry=runtime_state.status_registry,
+        operation_locks=runtime_state.operation_locks,
     )

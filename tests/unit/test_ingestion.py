@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from app.chunking import RecursiveDocumentChunker, TokenCounter
 from app.core.config import Settings
 from app.core.exceptions import (
     EmbeddingProviderServerError,
@@ -16,7 +17,6 @@ from app.models.ingestion import (
 )
 from app.parsers.registry import create_default_parser_registry
 from app.ports.qdrant import CollectionInfo, VectorDistance, VectorPoint
-from app.services.chunking import RecursiveDocumentChunker, TokenCounter
 from app.services.embedding import EmbeddingService
 from app.services.ingestion import DocumentIngestionService
 from tests.fakes import RecordingEmbeddingProvider
@@ -139,7 +139,7 @@ def test_txt_md_pdf_complete_the_full_pipeline(filename: str, file_type: str) ->
     assert payload["user_id"] == "user-001"
     assert payload["document_id"] == "doc-001"
     assert payload["filename"] == filename
-    assert payload["page"] == 1
+    assert payload["page"] == (1 if file_type == "pdf" else None)
     assert payload["chunk_id"] == points[0].point_id
     assert payload["chunk_text"]
     assert payload["status"] == "COMPLETED"

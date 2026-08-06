@@ -40,6 +40,28 @@ Frontend에서 전달된 `user_id`를 신뢰 정보로 사용하지 않는 것�
 
 AI Server는 Backend가 전달한 검증된 실행 Context를 사용한다.
 
+## 2.1 REST request_id 단일화 규칙
+
+- `X-Request-ID`가 없으면 유효한 body/query `request_id`를 요청 Context, 구조화 로그,
+  응답 body 및 `X-Request-ID` 응답 헤더에 동일하게 사용한다.
+- `X-Request-ID`가 있으면 body/query `request_id`와 정확히 같아야 한다.
+- 두 값이 다르면 HTTP 422와 `REQUEST_ID_MISMATCH`를 반환하며 Service를 호출하지 않는다.
+- 계약에 바인딩되는 ID는 1~200자의 printable 문자열이어야 한다.
+- body/query 계약이 없는 요청은 유효한 헤더를 사용하고, 헤더도 없으면 서버가 UUID를 생성한다.
+
+## 2.2 구조화 로그 필드
+
+JSON 로그의 공통 필드는 `timestamp`, `level`, `logger`, `request_id`, `message`다. 호출부에서
+전달한 다음 allowlist 필드는 최상위 JSON 필드로 보존한다.
+
+```text
+event, operation, status, error_code, service, provider, model,
+call_id, user_id, document_id, tool_name, path, collection, error_count,
+latency_ms, duration_ms, chunk_count, result_count
+```
+
+API Key, Authorization/Bearer Token, Password, Secret 형태는 message와 exception에서 마스킹한다.
+
 ---
 
 # 3. Internal REST Endpoints
@@ -63,6 +85,14 @@ GET    /ready
 ```
 
 초기 적용 여부는 구현 시 결정하되 DTO와 내부 Model을 직접 결합하지 않는다.
+
+## 3.1 Health/Readiness 응답 의미
+
+- `/health`: 프로세스가 요청을 받을 수 있는지만 확인하며 HTTP 200을 반환한다.
+- `/ready`: 필수 Infrastructure 설정, Qdrant, MinIO bucket, 문서 처리 Service 조립 및 필수
+  Embedding 설정을 확인한다. 하나라도 실패하면 HTTP 503과 `status=not_ready`를 반환한다.
+- `READINESS_REQUIRE_DOCUMENT_PROCESSING=false`는 문서 처리 기능을 의도적으로 제외한 배포나
+  격리 테스트에서만 사용한다.
 
 ---
 
@@ -203,6 +233,8 @@ Qdrant 저장과 Citation 추적을 위한 내부 Chunk 개념.
   "chunk_text": "..."
 }
 ```
+
+`page`는 PDF처럼 실제 페이지가 있는 형식에서만 1부터 시작하며 TXT/MD에서는 `null`이다.
 
 ---
 

@@ -12,7 +12,7 @@ from app.core.exceptions import (
     LLMRateLimitError,
     LLMTimeoutError,
 )
-from app.ports.llm import LLMRequest, LLMResult, LLMUsage
+from app.models.llm import LLMRequest, LLMResult, LLMUsage
 
 _PROVIDER = "gemini"
 _API_URL = "https://generativelanguage.googleapis.com"

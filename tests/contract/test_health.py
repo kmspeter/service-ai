@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.core.exceptions import ExternalServiceConnectionError
-from app.infrastructure import InfrastructureClients
+from app.infrastructure import InfrastructureResources
 from app.main import create_app
 from tests.fakes import FakeObjectStorage, FakeQdrantRepository
 
@@ -25,12 +25,17 @@ def test_ready_returns_http_200(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.json() == {
         "status": "ready",
-        "checks": {"application": "ok", "qdrant": "ok", "minio": "ok"},
+        "checks": {
+            "application": "ok",
+            "document_processing": "ok",
+            "qdrant": "ok",
+            "minio": "ok",
+        },
     }
 
 
 def test_ready_returns_503_when_qdrant_is_unavailable(test_settings: Settings) -> None:
-    infrastructure = InfrastructureClients(
+    infrastructure = InfrastructureResources(
         qdrant=FakeQdrantRepository(ExternalServiceConnectionError("qdrant")),
         storage=FakeObjectStorage(),
     )
@@ -41,8 +46,34 @@ def test_ready_returns_503_when_qdrant_is_unavailable(test_settings: Settings) -
     assert response.status_code == 503
     assert response.json() == {
         "status": "not_ready",
-        "checks": {"application": "ok", "qdrant": "error", "minio": "ok"},
+        "checks": {
+            "application": "ok",
+            "document_processing": "ok",
+            "qdrant": "error",
+            "minio": "ok",
+        },
     }
+
+
+def test_ready_returns_503_when_required_document_processing_is_not_configured(
+    fake_infrastructure: InfrastructureResources,
+) -> None:
+    settings = Settings(
+        environment="test",
+        qdrant_url="http://qdrant.test:6333",
+        minio_url="http://minio.test:9000",
+        minio_access_key="test-access-key",
+        minio_secret_key="test-secret-key",
+        minio_bucket="test-documents",
+        minio_auto_create_bucket=False,
+        _env_file=None,
+    )
+
+    with TestClient(create_app(settings, fake_infrastructure)) as test_client:
+        response = test_client.get("/ready")
+
+    assert response.status_code == 503
+    assert response.json()["checks"]["document_processing"] == "error"
 
 
 def test_request_id_is_preserved(client: TestClient) -> None:

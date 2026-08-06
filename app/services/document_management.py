@@ -1,7 +1,8 @@
 import asyncio
 import logging
+from collections import OrderedDict
 from collections.abc import Mapping
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from app.core.exceptions import ApplicationError, ResourceNotFoundError
@@ -35,8 +36,13 @@ class DocumentOperationLocks:
 class DocumentStatusRegistry:
     """Process-local AI status only; this is not a Backend document database."""
 
-    def __init__(self) -> None:
-        self._results: dict[tuple[str, str], DocumentProcessingResult] = {}
+    def __init__(self, max_entries: int = 10_000) -> None:
+        if max_entries < 1:
+            raise ValueError("max_entries must be at least 1")
+        self._max_entries = max_entries
+        self._results: OrderedDict[
+            tuple[str, str], DocumentProcessingResult
+        ] = OrderedDict()
         self._lock = asyncio.Lock()
 
     async def mark_processing(self, context: DocumentProcessingContext) -> None:
@@ -51,17 +57,33 @@ class DocumentStatusRegistry:
 
     async def record(self, user_id: str, result: DocumentProcessingResult) -> None:
         async with self._lock:
-            self._results[(user_id, result.document_id)] = result
+            key = (user_id, result.document_id)
+            self._results[key] = result
+            self._results.move_to_end(key)
+            while len(self._results) > self._max_entries:
+                self._results.popitem(last=False)
 
     async def get(
         self, *, user_id: str, document_id: str
     ) -> DocumentProcessingResult | None:
         async with self._lock:
-            return self._results.get((user_id, document_id))
+            key = (user_id, document_id)
+            result = self._results.get(key)
+            if result is not None:
+                self._results.move_to_end(key)
+            return result
 
     async def remove(self, *, user_id: str, document_id: str) -> None:
         async with self._lock:
             self._results.pop((user_id, document_id), None)
+
+
+@dataclass(slots=True)
+class DocumentRuntimeState:
+    """Shared process-local state for ingestion, status, and deletion coordination."""
+
+    status_registry: DocumentStatusRegistry = field(default_factory=DocumentStatusRegistry)
+    operation_locks: DocumentOperationLocks = field(default_factory=DocumentOperationLocks)
 
 
 class DocumentManagementService:

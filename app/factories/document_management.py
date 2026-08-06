@@ -1,19 +1,17 @@
 """Construct document-management services."""
 
 from app.core.config import Settings
-from app.infrastructure import InfrastructureClients
+from app.infrastructure import InfrastructureResources
 from app.services.document_management import (
     DocumentManagementService,
-    DocumentOperationLocks,
-    DocumentStatusRegistry,
+    DocumentRuntimeState,
 )
 
 
 def create_document_management_service(
     settings: Settings,
-    infrastructure: InfrastructureClients,
-    status_registry: DocumentStatusRegistry,
-    operation_locks: DocumentOperationLocks,
+    infrastructure: InfrastructureResources,
+    runtime_state: DocumentRuntimeState,
 ) -> DocumentManagementService:
     """Build the Phase 08 service without adding a document metadata database."""
     settings.validate_required_settings(
@@ -23,6 +21,6 @@ def create_document_management_service(
     return DocumentManagementService(
         qdrant=infrastructure.qdrant,
         collection_name=settings.qdrant_collection,
-        status_registry=status_registry,
-        operation_locks=operation_locks,
+        status_registry=runtime_state.status_registry,
+        operation_locks=runtime_state.operation_locks,
     )

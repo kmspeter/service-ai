@@ -2,9 +2,10 @@ import asyncio
 
 from fastapi import APIRouter, Request, Response, status
 
+from app.composition import ApplicationContainer
 from app.core.config import Settings, SettingsConfigurationError
 from app.core.exceptions import ResourceNotFoundError
-from app.infrastructure import InfrastructureClients
+from app.infrastructure import InfrastructureResources
 from app.schemas.health import HealthResponse, ReadinessResponse
 
 router = APIRouter(tags=["health"])
@@ -14,8 +15,8 @@ def _settings_from(request: Request) -> Settings:
     return request.app.state.settings
 
 
-def _infrastructure_from(request: Request) -> InfrastructureClients | None:
-    return request.app.state.infrastructure
+def _container_from(request: Request) -> ApplicationContainer:
+    return request.app.state.container
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -26,7 +27,8 @@ async def health() -> HealthResponse:
 @router.get("/ready", response_model=ReadinessResponse)
 async def readiness(request: Request, response: Response) -> ReadinessResponse:
     settings = _settings_from(request)
-    infrastructure = _infrastructure_from(request)
+    container = _container_from(request)
+    infrastructure = container.infrastructure
     checks: dict[str, str] = {"application": "ok"}
 
     try:
@@ -35,6 +37,10 @@ async def readiness(request: Request, response: Response) -> ReadinessResponse:
         checks = {"application": "error", "qdrant": "error", "minio": "error"}
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return ReadinessResponse(status="not_ready", checks=checks)
+
+    checks["document_processing"] = (
+        "ok" if container.document_processing_ready else "error"
+    )
 
     if infrastructure is None:
         checks.update(qdrant="error", minio="error")
@@ -58,7 +64,7 @@ async def readiness(request: Request, response: Response) -> ReadinessResponse:
     )
 
 
-async def _check_minio(infrastructure: InfrastructureClients) -> None:
+async def _check_minio(infrastructure: InfrastructureResources) -> None:
     if not await infrastructure.storage.bucket_exists():
         raise ResourceNotFoundError("minio_bucket")
 

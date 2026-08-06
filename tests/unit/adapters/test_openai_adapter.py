@@ -15,7 +15,7 @@ from app.core.exceptions import (
     LLMRateLimitError,
     LLMTimeoutError,
 )
-from app.ports.llm import LLMRequest
+from app.models.llm import LLMRequest
 
 
 class FakeResponses:

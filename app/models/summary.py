@@ -11,6 +11,7 @@ class SummaryStrategy(StrEnum):
 class SummaryRequest:
     """Scoped request for summarizing one stored document."""
 
+    request_id: str
     user_id: str
     document_id: str
 

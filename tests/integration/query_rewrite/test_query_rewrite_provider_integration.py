@@ -35,6 +35,7 @@ def test_real_llm_rewrites_context_dependent_query_and_preserves_original() -> N
         try:
             result = await service.rewrite(
                 QueryRewriteRequest(
+                    request_id="query-rewrite-provider-integration",
                     current_message=original,
                     recent_messages=(
                         ConversationMessage(role="user", content="Qdrant가 뭐야?"),

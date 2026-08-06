@@ -1,9 +1,9 @@
 import logging
 from time import perf_counter
 
+from app.chunking import RecursiveDocumentChunker
 from app.core.exceptions import (
     ApplicationError,
-    EmbeddingError,
 )
 from app.models.ingestion import (
     DocumentFailureReason,
@@ -14,17 +14,17 @@ from app.models.ingestion import (
 from app.parsers.registry import ParserRegistry
 from app.ports.qdrant import QdrantRepository
 from app.ports.storage import ObjectStorage
-from app.services.chunking import RecursiveDocumentChunker
 from app.services.document_management import DocumentOperationLocks, DocumentStatusRegistry
 from app.services.embedding import EmbeddingService
-from app.services.ingestion_preparation import DocumentPreparationPipeline
-from app.services.ingestion_support import (
+from app.services.ingestion_components import (
     DocumentEmbeddingBatcher,
     IngestionMeasurements,
     build_vector_points,
     elapsed_ms,
     failed_processing_result,
 )
+from app.services.ingestion_preparation import DocumentPreparationPipeline
+from app.services.vector_collection import ensure_vector_collection
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,7 @@ class DocumentIngestionService:
             vectors, measurements.embedding_token_count = (
                 await self._embedding_batcher.embed(chunking)
             )
-        except (EmbeddingError, ApplicationError):
+        except ApplicationError:
             measurements.embedding_time_ms = elapsed_ms(embedding_started)
             return failed_processing_result(
                 context,
@@ -131,9 +131,10 @@ class DocumentIngestionService:
             measurements=measurements,
         )
         try:
-            await self._embedding_batcher.ensure_collection(
+            await ensure_vector_collection(
                 self._qdrant,
                 self._collection_name,
+                expected_dimension=self._embedding_batcher.dimension,
             )
             await self._qdrant.replace_document_points(
                 self._collection_name,

@@ -2,13 +2,13 @@ from collections.abc import Mapping
 from pathlib import PurePosixPath
 from typing import Any
 
+from app.chunking import RecursiveDocumentChunker
 from app.core.exceptions import ResourceNotFoundError
 from app.models.document import NormalizedDocument, ParserInput
 from app.models.summary import DocumentSummaryResult, SummaryRequest
 from app.parsers.registry import ParserRegistry
 from app.ports.qdrant import QdrantRepository
 from app.ports.storage import ObjectStorage
-from app.services.chunking import RecursiveDocumentChunker
 from app.services.summary_execution import (
     SummaryExecutionEngine,
     SummaryGenerator,

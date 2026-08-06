@@ -135,18 +135,20 @@ Prompt 변경이 Service 코드 변경과 가능한 한 독립적이어야 한�
 
 ---
 
-## 4. 권장 코드 구조
+## 4. 현재 코드 구조와 확장 경계
 
-다음은 책임 경계를 코드에 반영하기 위한 권장 구조다.
+Phase 13까지의 실제 구조다. Phase 14 이후 디렉터리는 해당 Phase에서 추가한다.
 
 ```text
 app/
 ├─ main.py
+├─ composition.py
+├─ infrastructure.py
 │
 ├─ api/
 │  ├─ health.py
 │  ├─ documents.py
-│  └─ websocket.py
+│  └─ router.py
 │
 ├─ core/
 │  ├─ config.py
@@ -155,30 +157,32 @@ app/
 │  └─ request_context.py
 │
 ├─ schemas/
-│  ├─ document.py
-│  ├─ chat.py
-│  ├─ events.py
-│  ├─ citation.py
-│  └─ usage.py
+│  ├─ documents.py
+│  └─ health.py
 │
 ├─ models/
 │  ├─ document.py
-│  ├─ chunk.py
+│  ├─ ingestion.py
+│  ├─ embedding.py
+│  ├─ llm.py
 │  ├─ retrieval.py
-│  ├─ citation.py
-│  └─ usage.py
+│  ├─ rag.py
+│  ├─ summary.py
+│  ├─ query_rewrite.py
+│  └─ context.py
 │
 ├─ services/
-│  ├─ document_service.py
-│  ├─ ingestion_service.py
-│  ├─ retrieval_service.py
-│  ├─ rag_service.py
-│  ├─ summary_service.py
-│  ├─ query_rewrite_service.py
-│  ├─ context_service.py
-│  ├─ agent_service.py
-│  ├─ usage_service.py
-│  └─ event_service.py
+│  ├─ ingestion.py
+│  ├─ ingestion_preparation.py
+│  ├─ ingestion_components.py
+│  ├─ document_management.py
+│  ├─ vector_collection.py
+│  ├─ retrieval.py
+│  ├─ rag.py
+│  ├─ summary.py
+│  ├─ query_rewrite.py
+│  ├─ conversation_compaction.py
+│  └─ context.py
 │
 ├─ parsers/
 │  ├─ base.py
@@ -188,44 +192,17 @@ app/
 │  └─ markdown.py
 │
 ├─ chunking/
-│  ├─ base.py
 │  └─ recursive.py
 │
-├─ providers/
-│  ├─ llm/
-│  │  ├─ base.py
-│  │  ├─ openai.py
-│  │  └─ ollama.py
-│  │
-│  └─ embedding/
-│     ├─ base.py
-│     └─ provider.py
-│
-├─ repositories/
-│  ├─ vector/
-│  │  ├─ base.py
-│  │  └─ qdrant.py
-│  └─ storage/
-│     ├─ base.py
-│     └─ minio.py
-│
-├─ clients/
-│  └─ backend.py
-│
-├─ tools/
-│  ├─ search_documents.py
-│  ├─ summarize_document.py
-│  └─ list_documents.py
-│
-└─ prompts/
-   ├─ agent.*
-   ├─ rag.*
-   ├─ summary.*
-   ├─ query_rewrite.*
-   └─ conversation_summary.*
+├─ ports/                        # Protocol 중심의 외부/Application 경계
+├─ adapters/                     # 외부 SDK 타입과 오류 변환
+├─ factories/                    # 기능별 객체 조립
+└─ prompts/                      # Prompt 단일 관리
 ```
 
-`*`의 실제 파일 형식은 구현 시 선택할 수 있다.
+`ApplicationContainer`는 현재 Service와 Infrastructure Resource를 조립하고, 자신이 생성한 객체만
+lifespan 종료 시 닫는다. 테스트나 수동 실행에서 주입한 객체는 호출자가 소유한다. Phase 14 이후 Tool,
+Agent, WebSocket Service도 이 조립 경계에 추가하며 `main.py`나 API 모듈에서 직접 Provider를 생성하지 않는다.
 
 ---
 
@@ -549,9 +526,14 @@ FastAPI Process
 필수 설정
 Qdrant
 MinIO
+현재 노출된 문서 처리 Service 조립
+문서 처리에 필요한 Embedding 설정
 ```
 
-외부 LLM/Embedding Provider 상태를 Readiness 실패의 절대 조건으로 둘지는 구현 시 운영 정책으로 결정한다. `IMPLEMENTATION_SCOPE.md`는 외부 API 연동 가능성을 확인 대상으로 두고 있으므로 해당 범위 안에서 정책을 명시적으로 구현한다.
+기본값 `READINESS_REQUIRE_DOCUMENT_PROCESSING=true`에서는 문서 처리 Service 또는 필수 설정이 빠지면
+Qdrant/MinIO가 정상이어도 503을 반환한다. 외부 LLM/Embedding API에 유료 probe를 보내지는 않으며,
+각 요청 시 Adapter의 표준 예외로 가용성 실패를 처리한다. 문서 처리 기능을 의도적으로 비활성화한 배포만
+`READINESS_REQUIRE_DOCUMENT_PROCESSING=false`를 사용한다.
 
 ---
 

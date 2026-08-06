@@ -1,4 +1,3 @@
-import argparse
 import json
 from dataclasses import asdict
 from pathlib import Path
@@ -8,30 +7,24 @@ from app.factories.chunking import create_document_chunker
 from app.models.document import ParserInput
 from app.parsers.registry import create_default_parser_registry
 
-
-def _arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Parse one PDF/TXT/MD file and inspect Phase 06 chunk output."
-    )
-    parser.add_argument("input_file", type=Path)
-    parser.add_argument("--document-id", default="development-document")
-    parser.add_argument("--user-id", default="development-user")
-    return parser.parse_args()
+# Manual configuration: edit only these values, then run this file as a module.
+INPUT_FILE = Path("tests/fixtures/documents/sample.txt")
+DOCUMENT_ID = "manual-document"
+USER_ID = "manual-user"
 
 
-def _main() -> None:
-    arguments = _arguments()
-    input_file = arguments.input_file.resolve()
+def main() -> None:
+    input_file = INPUT_FILE.resolve()
     settings = get_settings()
     chunker = create_document_chunker(settings)
     document = create_default_parser_registry().parse(
         ParserInput(
-            document_id=arguments.document_id,
+            document_id=DOCUMENT_ID,
             filename=input_file.name,
             content=input_file.read_bytes(),
         )
     )
-    result = chunker.chunk(document, user_id=arguments.user_id)
+    result = chunker.chunk(document, user_id=USER_ID)
     output = {
         "document_id": document.document_id,
         "filename": document.filename,
@@ -53,4 +46,4 @@ def _main() -> None:
 
 
 if __name__ == "__main__":
-    _main()
+    main()

@@ -2,14 +2,15 @@ import asyncio
 
 import pytest
 
+from app.chunking import RecursiveDocumentChunker, TokenCounter
 from app.core.exceptions import (
+    LLMConnectionError,
     ResourceNotFoundError,
     SummaryGenerationError,
 )
+from app.models.llm import LLMRequest, LLMResult
 from app.models.summary import SummaryRequest, SummaryStrategy
 from app.parsers.registry import create_default_parser_registry
-from app.ports.llm import LLMRequest, LLMResult
-from app.services.chunking import RecursiveDocumentChunker, TokenCounter
 from app.services.summary import DocumentSummaryService, SummaryStrategySelector
 from tests.fakes import RecordingLLM
 
@@ -50,7 +51,7 @@ class FailingSummaryLLM(RecordingLLM):
         if f"[SUMMARY_STAGE:{self.stage}]" in request.content:
             self.stage_calls += 1
             if self.stage_calls == self.occurrence:
-                raise RuntimeError("provider failed")
+                raise LLMConnectionError("fake")
         return await super().generate(request)
 
 
@@ -105,7 +106,11 @@ def _service(
 
 
 def _request() -> SummaryRequest:
-    return SummaryRequest(user_id="user-001", document_id="doc-001")
+    return SummaryRequest(
+        request_id="req-summary",
+        user_id="user-001",
+        document_id="doc-001",
+    )
 
 
 def test_small_document_selects_direct_and_uses_minio_original() -> None:
@@ -229,7 +234,7 @@ def test_direct_llm_failure_reports_direct_stage() -> None:
 
     assert exc_info.value.stage == "direct"
     assert exc_info.value.chunk_index is None
-    assert isinstance(exc_info.value.__cause__, RuntimeError)
+    assert isinstance(exc_info.value.__cause__, LLMConnectionError)
 
 
 def test_partial_map_failure_stops_before_final_reduce() -> None:

@@ -3,14 +3,14 @@ from datetime import UTC, datetime
 from time import perf_counter
 
 from app.models.document import ChunkingResult
+from app.models.embedding import EmbeddingVector
 from app.models.ingestion import (
     DocumentFailureReason,
     DocumentProcessingContext,
     DocumentProcessingResult,
     DocumentProcessingStatus,
 )
-from app.ports.embedding import EmbeddingVector
-from app.ports.qdrant import QdrantRepository, VectorPoint
+from app.ports.qdrant import VectorPoint
 from app.services.embedding import EmbeddingService
 
 
@@ -41,6 +41,10 @@ class DocumentEmbeddingBatcher:
         self._embedding = embedding
         self._batch_size = batch_size
 
+    @property
+    def dimension(self) -> int:
+        return self._embedding.dimension
+
     async def embed(
         self, chunking: ChunkingResult
     ) -> tuple[tuple[EmbeddingVector, ...], int | None]:
@@ -66,13 +70,6 @@ class DocumentEmbeddingBatcher:
 
         return tuple(vectors), total_input_tokens if usage_available else None
 
-    async def ensure_collection(
-        self,
-        repository: QdrantRepository,
-        collection_name: str,
-    ) -> None:
-        await self._embedding.ensure_qdrant_collection(repository, collection_name)
-
     async def close(self) -> None:
         await self._embedding.close()
 
@@ -96,7 +93,7 @@ def build_vector_points(
                 "user_id": context.user_id,
                 "document_id": context.document_id,
                 "filename": chunk.filename,
-                "page": chunk.page if chunk.page is not None else 1,
+                "page": chunk.page,
                 "chunk_id": chunk.chunk_id,
                 "file_type": chunk.file_type,
                 "section": chunk.section,

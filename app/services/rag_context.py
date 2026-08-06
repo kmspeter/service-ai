@@ -2,8 +2,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from app.chunking import TokenCounter
 from app.models.retrieval import RetrievalResult
-from app.services.chunking import TokenCounter
 
 
 @dataclass(frozen=True, slots=True)

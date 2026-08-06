@@ -1,14 +1,17 @@
+import logging
 from collections.abc import Callable
 from typing import Protocol
 
-from app.core.exceptions import ContextBudgetError
+from app.chunking import TokenCounter
+from app.core.exceptions import ApplicationError, ContextBudgetError
 from app.models.context import ManagedConversation
+from app.models.llm import LLMRequest, LLMResult
 from app.models.query_rewrite import ConversationMessage
-from app.ports.llm import LLMRequest, LLMResult
 from app.prompts.conversation_summary import build_conversation_summary_prompt
 from app.prompts.query_rewrite import build_query_rewrite_prompt
 from app.prompts.rag import build_rag_answer_prompt
-from app.services.chunking import TokenCounter
+
+logger = logging.getLogger(__name__)
 
 
 class ConversationSummaryGenerator(Protocol):
@@ -49,6 +52,7 @@ class ConversationCompactor:
         conversation_summary: str | None,
         recent_messages: tuple[ConversationMessage, ...],
         current_question: str,
+        request_id: str = "-",
     ) -> ManagedConversation:
         if not current_question.strip():
             raise ValueError("current_question must not be empty")
@@ -71,6 +75,7 @@ class ConversationCompactor:
             generated_summary, summarized_count = await self._summarize(
                 previous_summary=summary,
                 messages=tuple(dropped),
+                request_id=request_id,
             )
             if generated_summary is not None:
                 summary = generated_summary
@@ -96,6 +101,7 @@ class ConversationCompactor:
         *,
         previous_summary: str | None,
         messages: tuple[ConversationMessage, ...],
+        request_id: str,
     ) -> tuple[str | None, int]:
         summary = self._truncate_for_summary_prompt(previous_summary)
         pending = list(messages)
@@ -136,9 +142,27 @@ class ConversationCompactor:
                     )
                 )
                 if not result.content.strip():
+                    logger.warning(
+                        "Conversation summary fallback",
+                        extra={
+                            "request_id": request_id,
+                            "operation": "conversation_summary",
+                            "status": "fallback",
+                            "error_code": "EMPTY_LLM_OUTPUT",
+                        },
+                    )
                     return previous_summary, 0
                 summary = self._truncate_for_summary_prompt(result.content.strip())
-        except Exception:
+        except ApplicationError as exc:
+            logger.warning(
+                "Conversation summary fallback",
+                extra={
+                    "request_id": request_id,
+                    "operation": "conversation_summary",
+                    "status": "fallback",
+                    "error_code": exc.code,
+                },
+            )
             return previous_summary, 0
         return summary, len(messages) if summary is not None else summarized_count
 

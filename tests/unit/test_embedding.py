@@ -11,6 +11,7 @@ from app.core.exceptions import (
 from app.factories.embedding import create_embedding_service
 from app.ports.qdrant import CollectionInfo, VectorDistance
 from app.services.embedding import EmbeddingService
+from app.services.vector_collection import ensure_vector_collection
 from tests.fakes import RecordingEmbeddingProvider
 
 
@@ -87,7 +88,9 @@ def test_missing_qdrant_collection_is_created_with_embedding_dimension() -> None
     repository = FakeQdrantRepository(vector_size=None)
 
     collection = asyncio.run(
-        service.ensure_qdrant_collection(repository, "documents")
+        ensure_vector_collection(
+            repository, "documents", expected_dimension=service.dimension
+        )
     )
 
     assert repository.created_with == ("documents", 3, "cosine")
@@ -99,7 +102,9 @@ def test_existing_qdrant_collection_with_matching_dimension_is_reused() -> None:
     repository = FakeQdrantRepository(vector_size=3)
 
     collection = asyncio.run(
-        service.ensure_qdrant_collection(repository, "documents")
+        ensure_vector_collection(
+            repository, "documents", expected_dimension=service.dimension
+        )
     )
 
     assert repository.created_with is None
@@ -115,7 +120,13 @@ def test_incompatible_qdrant_collection_dimension_is_explicit_error(
     repository.exists = True
 
     with pytest.raises(QdrantVectorDimensionMismatchError) as exc_info:
-        asyncio.run(service.ensure_qdrant_collection(repository, "documents"))
+        asyncio.run(
+            ensure_vector_collection(
+                repository,
+                "documents",
+                expected_dimension=service.dimension,
+            )
+        )
 
     assert exc_info.value.collection_name == "documents"
     assert exc_info.value.expected_dimension == 3

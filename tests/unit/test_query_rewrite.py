@@ -2,6 +2,7 @@ import asyncio
 
 import pytest
 
+from app.core.exceptions import LLMConnectionError
 from app.models.query_rewrite import (
     ConversationMessage,
     QueryRewriteRequest,
@@ -22,6 +23,7 @@ def _rewrite(
     result = asyncio.run(
         QueryRewriteService(llm=llm).rewrite(
             QueryRewriteRequest(
+                request_id="req-rewrite",
                 current_message=current_message,
                 conversation_summary=summary,
                 recent_messages=messages,
@@ -118,8 +120,9 @@ def test_conversation_summary_alone_is_rewrite_context() -> None:
 def test_llm_failure_falls_back_to_exact_original_query() -> None:
     original = "그럼 장점은?"
     llm = RecordingLLM("")
-    llm.error = RuntimeError("provider failed")
+    llm.error = LLMConnectionError("fake")
     request = QueryRewriteRequest(
+        request_id="req-rewrite",
         current_message=original,
         recent_messages=(ConversationMessage(role="user", content="Qdrant가 뭐야?"),),
     )
@@ -164,6 +167,7 @@ def test_empty_current_message_is_rejected_before_llm_call() -> None:
         asyncio.run(
             QueryRewriteService(llm=llm).rewrite(
                 QueryRewriteRequest(
+                    request_id="req-rewrite",
                     current_message="   ",
                     conversation_summary="Qdrant 대화",
                 )
@@ -171,3 +175,21 @@ def test_empty_current_message_is_rejected_before_llm_call() -> None:
         )
 
     assert llm.calls == 0
+
+
+def test_unexpected_programming_error_is_not_silently_fallbacked() -> None:
+    llm = RecordingLLM("")
+    llm.error = RuntimeError("programming failure")
+
+    with pytest.raises(RuntimeError, match="programming failure"):
+        asyncio.run(
+            QueryRewriteService(llm=llm).rewrite(
+                QueryRewriteRequest(
+                    request_id="req-rewrite",
+                    current_message="그럼 장점은?",
+                    recent_messages=(
+                        ConversationMessage(role="user", content="Qdrant가 뭐야?"),
+                    ),
+                )
+            )
+        )

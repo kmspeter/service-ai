@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal
 
-from app.ports.llm import LLMResult
+from app.models.llm import LLMResult
 
 
 class QueryRewriteStatus(StrEnum):
@@ -24,6 +24,7 @@ class ConversationMessage:
 class QueryRewriteRequest:
     """Conversation context and the untouched current user message."""
 
+    request_id: str
     current_message: str
     conversation_summary: str | None = None
     recent_messages: tuple[ConversationMessage, ...] = ()

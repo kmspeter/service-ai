@@ -1,19 +1,19 @@
 from typing import Protocol
 
-from app.core.exceptions import SummaryBudgetError, SummaryGenerationError
+from app.chunking import RecursiveDocumentChunker, TokenCounter
+from app.core.exceptions import ApplicationError, SummaryBudgetError, SummaryGenerationError
 from app.models.document import NormalizedDocument
+from app.models.llm import LLMRequest, LLMResult
 from app.models.summary import (
     DocumentSummaryResult,
     SummaryStrategy,
     SummaryStrategyDecision,
 )
-from app.ports.llm import LLMRequest, LLMResult
 from app.prompts.summary import (
     build_chunk_summary_prompt,
     build_direct_summary_prompt,
     build_reduce_summary_prompt,
 )
-from app.services.chunking import RecursiveDocumentChunker, TokenCounter
 
 
 class SummaryGenerator(Protocol):
@@ -250,7 +250,7 @@ class SummaryExecutionEngine:
                     max_output_tokens=self._selector.reserved_output_tokens,
                 )
             )
-        except Exception as exc:
+        except ApplicationError as exc:
             raise SummaryGenerationError(
                 stage=stage,
                 chunk_index=chunk_index,

@@ -11,6 +11,7 @@ from app.core.exceptions import (
     QdrantVectorDimensionMismatchError,
 )
 from app.services.embedding import EmbeddingService
+from app.services.vector_collection import ensure_vector_collection
 
 pytestmark = [
     pytest.mark.infrastructure,
@@ -81,7 +82,11 @@ def test_embedding_collection_uses_actual_model_dimension() -> None:
         service = EmbeddingService(DimensionOnlyEmbeddingProvider())
         collection_name = f"phase04_embedding_{uuid4().hex}"
         try:
-            collection = await service.ensure_qdrant_collection(adapter, collection_name)
+            collection = await ensure_vector_collection(
+                adapter,
+                collection_name,
+                expected_dimension=service.dimension,
+            )
 
             assert collection.vector_size == 1536
             assert collection.points_count == 0
@@ -102,7 +107,11 @@ def test_incompatible_existing_collection_is_rejected_without_recreation() -> No
             await adapter.create_collection(collection_name, vector_size=4)
 
             with pytest.raises(QdrantVectorDimensionMismatchError) as exc_info:
-                await service.ensure_qdrant_collection(adapter, collection_name)
+                await ensure_vector_collection(
+                    adapter,
+                    collection_name,
+                    expected_dimension=service.dimension,
+                )
 
             assert exc_info.value.expected_dimension == 1536
             assert exc_info.value.actual_dimension == 4

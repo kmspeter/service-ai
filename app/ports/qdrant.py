@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
-from app.ports.embedding import EmbeddingVector
+from app.models.embedding import EmbeddingVector
 
 type VectorDistance = Literal["cosine", "dot", "euclid", "manhattan"]
 type VectorSize = int | dict[str, int] | None
@@ -90,6 +90,10 @@ class QdrantRepository(Protocol):
         score_threshold: float,
     ) -> tuple[VectorSearchHit, ...]: ...
 
-    async def delete_collection(self, collection_name: str) -> None: ...
-
     async def close(self) -> None: ...
+
+
+class QdrantAdminRepository(QdrantRepository, Protocol):
+    """Administrative vector operations excluded from application services."""
+
+    async def delete_collection(self, collection_name: str) -> None: ...

@@ -1,17 +1,22 @@
-from typing import Literal
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
+from app.core.request_context import validate_request_id
 from app.models.ingestion import (
     DocumentDeleteFailureReason,
+    DocumentDeleteStatus,
     DocumentFailureReason,
+    DocumentProcessingStatus,
 )
+
+RequestId = Annotated[str, AfterValidator(validate_request_id)]
 
 
 class DocumentProcessingRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    request_id: str = Field(min_length=1, max_length=200)
+    request_id: RequestId = Field(min_length=1, max_length=200)
     user_id: str = Field(min_length=1, max_length=200)
     document_id: str = Field(min_length=1, max_length=200)
     storage_key: str = Field(min_length=1, max_length=1_024)
@@ -29,7 +34,7 @@ class DocumentProcessingResponse(BaseModel):
 
     request_id: str
     document_id: str
-    status: Literal["COMPLETED", "FAILED"]
+    status: DocumentProcessingStatus
     file_type: str | None = None
     file_size: int | None = None
     page_count: int | None = None
@@ -47,7 +52,7 @@ class DocumentDeleteResponse(BaseModel):
 
     request_id: str
     document_id: str
-    status: Literal["DELETED", "NOT_FOUND", "FAILED"]
+    status: DocumentDeleteStatus
     deleted_point_count: int = 0
     failure_reason: DocumentDeleteFailureReason | None = None
     retryable: bool = False
@@ -58,7 +63,7 @@ class DocumentStatusResponse(BaseModel):
 
     request_id: str
     document_id: str
-    status: Literal["UPLOADED", "PROCESSING", "COMPLETED", "FAILED"]
+    status: DocumentProcessingStatus
     file_type: str | None = None
     file_size: int | None = None
     page_count: int | None = None

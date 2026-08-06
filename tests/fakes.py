@@ -1,7 +1,7 @@
 from collections.abc import Callable
 
-from app.ports.embedding import EmbeddingBatchResult, EmbeddingUsage
-from app.ports.llm import LLMRequest, LLMResult, LLMUsage
+from app.models.embedding import EmbeddingBatchResult, EmbeddingUsage
+from app.models.llm import LLMRequest, LLMResult, LLMUsage
 from app.ports.qdrant import CollectionInfo, VectorDistance
 from app.ports.storage import StoredObject
 

@@ -1,5 +1,6 @@
 import json
 
+from app.chunking import TokenCounter
 from app.core.exceptions import ContextBudgetError
 from app.models.context import (
     ContextTokenUsage,
@@ -9,7 +10,6 @@ from app.models.context import (
 from app.models.query_rewrite import ConversationMessage
 from app.models.retrieval import RetrievalResult
 from app.prompts.rag import build_rag_answer_prompt
-from app.services.chunking import TokenCounter
 from app.services.conversation_compaction import (
     ConversationCompactor,
     ConversationSummaryGenerator,
@@ -58,11 +58,13 @@ class ContextBudgetManager:
         conversation_summary: str | None,
         recent_messages: tuple[ConversationMessage, ...],
         current_question: str,
+        request_id: str = "-",
     ) -> ManagedConversation:
         return await self._conversation_compactor.prepare(
             conversation_summary=conversation_summary,
             recent_messages=recent_messages,
             current_question=current_question,
+            request_id=request_id,
         )
 
     def build_rag_context(

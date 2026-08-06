@@ -13,9 +13,13 @@ AI Server를 Backend 없이도 최대한 독립적으로 검증하고, 각 Phase
 ```text
 Unit Test
     ↓
+Component Test
+    ↓
+Contract Test
+    ↓
 Integration Test
     ↓
-Manual CLI / curl
+Smoke / Manual .py / curl
     ↓
 WebSocket Client
     ↓
@@ -33,9 +37,11 @@ tests/
 ├─ unit/
 │  ├─ parsers/
 │  ├─ chunking/
-│  ├─ context/
-│  ├─ usage/
-│  └─ tools/
+│  └─ adapters/
+│
+├─ component/                    # Fake Port로 여러 Service를 조립한 흐름
+├─ contract/                     # FastAPI HTTP/DTO/오류/header 계약
+├─ smoke/                        # 수동 스크립트 import/직접 실행
 │
 ├─ integration/
 │  ├─ qdrant/
@@ -43,15 +49,12 @@ tests/
 │  ├─ embedding/
 │  ├─ llm/
 │  ├─ rag/
-│  ├─ agent/
-│  └─ websocket/
+│  ├─ query_rewrite/
+│  └─ summary/
 │
-└─ fixtures/
-   ├─ sample.txt
-   ├─ sample.md
-   ├─ sample.pdf
-   ├─ encrypted.pdf
-   ├─ corrupted.pdf
+└─ fixtures/documents/
+   ├─ sample.txt / sample.md / sample.pdf
+   ├─ multi_page.pdf / encrypted.pdf / corrupted.pdf
    └─ empty.txt
 ```
 
@@ -81,6 +84,12 @@ Integration:
 .\.venv\Scripts\python.exe -m pytest tests/integration
 ```
 
+Component / Contract / Smoke:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/component tests/contract tests/smoke
+```
+
 Phase 02 실제 Infrastructure Integration Test:
 
 ```powershell
@@ -101,11 +110,34 @@ $env:MINIO_SECRET_KEY="service-ai-local-pw"
 .\.venv\Scripts\python.exe -m pytest tests/unit/parsers
 ```
 
-Phase 01에서는 정적 검사 도구로 Ruff를 사용한다.
+정적 검사와 커버리지 기준:
 
 ```powershell
 .\.venv\Scripts\python.exe -m ruff check .
+.\.venv\Scripts\python.exe -m mypy
+.\.venv\Scripts\python.exe -m pytest --cov=app --cov-report=term-missing
 ```
+
+Coverage는 branch coverage를 포함하며 `pyproject.toml`의 최소 80% 기준을 적용한다. `mypy`와
+`pytest-cov`가 없다면 먼저 `pip install -e ".[dev]"`로 개발 의존성을 동기화한다.
+
+## 4.1 수동 `.py` 실행
+
+CLI 인자 대신 각 파일 상단의 대문자 변수만 수정한다. Credential과 Endpoint는 `.env`에서 읽는다.
+저장소 루트에서 다음처럼 실행한다.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\manual_chunking.py
+.\.venv\Scripts\python.exe scripts\manual_ingestion.py
+.\.venv\Scripts\python.exe scripts\manual_retrieval.py
+.\.venv\Scripts\python.exe scripts\manual_rag.py
+.\.venv\Scripts\python.exe scripts\manual_summary.py
+.\.venv\Scripts\python.exe scripts\manual_llm.py
+```
+
+`manual_ingestion.py`는 `STORAGE_KEY`의 객체가 MinIO에 미리 있어야 한다. 외부 Provider를 사용하는
+나머지 스크립트는 API 비용이 발생할 수 있다. `tests/smoke/test_manual_scripts.py`는 import 시 외부
+호출이 발생하지 않는지와 비용 없는 chunking 스크립트의 직접 `.py` 실행을 검증한다.
 
 ---
 
@@ -132,8 +164,25 @@ curl http://localhost:8000/ready
 
 - 필수 설정
 - Qdrant
-- MinIO
-- 구현 정책에 따른 외부 API 연동 가능성
+- MinIO bucket
+- 현재 노출된 문서 처리 Service 조립
+- 문서 처리에 필요한 Embedding 설정
+
+`READINESS_REQUIRE_DOCUMENT_PROCESSING=true`가 기본이며, Qdrant/MinIO만 정상이고 문서 처리
+서비스가 조립되지 않은 경우에도 HTTP 503이어야 한다. 외부 유료 Provider probe는 수행하지 않는다.
+
+## request_id / 구조화 로그
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests\contract tests\unit\test_logging.py -q
+```
+
+검증:
+
+- POST body 또는 query `request_id`와 응답 body/header/log의 ID 일치
+- 서로 다른 `X-Request-ID`와 body/query ID는 `REQUEST_ID_MISMATCH` 422
+- allowlist extra 필드가 JSON 최상위에 보존됨
+- API Key, Authorization/Bearer Token 등 민감값이 message/exception에서 마스킹됨
 
 ---
 
@@ -260,13 +309,13 @@ $env:RUN_LLM_INTEGRATION_TESTS="1"
 .\.venv\Scripts\python.exe -m pytest tests/integration/llm -q
 ```
 
-Agent/RAG와 무관한 개발용 CLI:
+Agent/RAG와 무관한 수동 LLM 실행:
 
 ```powershell
-.\.venv\Scripts\python.exe -m scripts.test_llm
+.\.venv\Scripts\python.exe scripts\manual_llm.py
 ```
 
-실행 Flag나 실제 Credential이 없으면 Integration Test는 실패가 아니라 명시적으로 skip된다. CLI는 필수 설정 누락을
+실행 Flag나 실제 Credential이 없으면 Integration Test는 실패가 아니라 명시적으로 skip된다. 수동 스크립트는 필수 설정 누락을
 보고한다. OpenAI Adapter는 SDK의 자동 Retry를 비활성화하며 Phase 03에서는 별도 Retry를 적용하지 않는다.
 Ollama Adapter도 HTTP Client 기본 1회 호출만 수행하고 별도 Retry를 적용하지 않는다.
 
@@ -432,10 +481,10 @@ Phase 06 Unit Test:
 .\.venv\Scripts\python.exe -m pytest tests/unit/chunking tests/unit/test_config.py -q
 ```
 
-개발용 Parser → Chunking 확인:
+개발용 Parser → Chunking 확인(`manual_chunking.py` 상단 변수 수정):
 
 ```powershell
-.\.venv\Scripts\python.exe -m scripts.inspect_chunking tests/fixtures/documents/multi_page.pdf
+.\.venv\Scripts\python.exe scripts\manual_chunking.py
 ```
 
 정책:
@@ -580,13 +629,10 @@ $env:QDRANT_URL='http://127.0.0.1:6333'
 
 마지막 테스트는 선택 Provider Credential과 외부 네트워크를 사용하며 API 비용이 발생할 수 있다.
 
-개발 Collection의 결과를 사람이 직접 확인:
+개발 Collection의 결과를 사람이 직접 확인(`manual_retrieval.py` 상단 변수 수정):
 
 ```powershell
-.\.venv\Scripts\python.exe -m scripts.inspect_retrieval `
-  --user-id user-001 `
-  --document-ids doc-001 doc-002 `
-  --query "Qdrant의 장점은 무엇인가?"
+.\.venv\Scripts\python.exe scripts\manual_retrieval.py
 ```
 
 출력에는 각 Chunk의 `chunk_id`, `document_id`, `filename`, `page`, `section`, `score`, `content`가 포함된다.
@@ -636,17 +682,14 @@ Phase 10 Unit/Deterministic Integration:
 ```powershell
 .\.venv\Scripts\python.exe -m pytest `
   tests\unit\test_rag.py `
-  tests\integration\rag\test_rag_pipeline.py `
+  tests\component\test_rag_pipeline.py `
   tests\unit\test_config.py -q
 ```
 
-Agent 없는 개발용 RAG 진입점:
+Agent 없는 개발용 RAG 진입점(`manual_rag.py` 상단 변수 수정):
 
 ```powershell
-.\.venv\Scripts\python.exe -m scripts.inspect_rag `
-  --user-id user-001 `
-  --document-ids doc-001 doc-002 `
-  --question "Qdrant의 장점은 무엇인가?"
+.\.venv\Scripts\python.exe scripts\manual_rag.py
 ```
 
 실제 Embedding Provider → Qdrant → Retrieval → RAG Context → LLM → Citation E2E:
@@ -768,7 +811,7 @@ Unit 및 RAG 경계 검증:
 .\.venv\Scripts\python.exe -m pytest `
   tests\unit\test_query_rewrite.py `
   tests\unit\test_rag.py `
-  tests\integration\rag\test_rag_pipeline.py -q
+  tests\component\test_rag_pipeline.py -q
 ```
 
 실제 LLM Provider Prompt E2E:
@@ -831,7 +874,7 @@ Phase 13 Unit 및 RAG 경계 검증:
   tests\unit\test_context.py `
   tests\unit\test_rag.py `
   tests\unit\test_config.py `
-  tests\integration\rag\test_rag_pipeline.py -q
+  tests\component\test_rag_pipeline.py -q
 ```
 
 ---

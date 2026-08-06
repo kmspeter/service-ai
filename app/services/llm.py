@@ -1,4 +1,5 @@
-from app.ports.llm import LLMProvider, LLMRequest, LLMResult
+from app.models.llm import LLMRequest, LLMResult
+from app.ports.llm import LLMProvider
 
 
 class LLMService:

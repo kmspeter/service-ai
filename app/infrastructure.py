@@ -4,20 +4,20 @@ from dataclasses import dataclass
 from app.adapters.minio import MinIOStorageAdapter
 from app.adapters.qdrant import QdrantAdapter
 from app.core.config import Settings
-from app.ports.qdrant import QdrantRepository
-from app.ports.storage import ObjectStorage
+from app.ports.qdrant import QdrantAdminRepository
+from app.ports.storage import ObjectStorageAdmin
 
 
 @dataclass(slots=True)
-class InfrastructureClients:
-    qdrant: QdrantRepository
-    storage: ObjectStorage
+class InfrastructureResources:
+    qdrant: QdrantAdminRepository
+    storage: ObjectStorageAdmin
 
     async def close(self) -> None:
         await asyncio.gather(self.qdrant.close(), self.storage.close())
 
 
-def create_infrastructure_clients(settings: Settings) -> InfrastructureClients:
+def create_infrastructure_resources(settings: Settings) -> InfrastructureResources:
     """Construct SDK adapters from validated environment-backed settings."""
     settings.validate_infrastructure_settings()
     assert settings.qdrant_url is not None
@@ -29,7 +29,7 @@ def create_infrastructure_clients(settings: Settings) -> InfrastructureClients:
     qdrant_api_key = (
         settings.qdrant_api_key.get_secret_value() if settings.qdrant_api_key else None
     )
-    return InfrastructureClients(
+    return InfrastructureResources(
         qdrant=QdrantAdapter(
             str(settings.qdrant_url),
             api_key=qdrant_api_key,

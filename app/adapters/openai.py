@@ -13,7 +13,7 @@ from app.core.exceptions import (
     LLMRateLimitError,
     LLMTimeoutError,
 )
-from app.ports.llm import LLMRequest, LLMResult, LLMUsage
+from app.models.llm import LLMRequest, LLMResult, LLMUsage
 
 _PROVIDER = "openai"
 

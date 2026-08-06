@@ -21,7 +21,7 @@
 
 ---
 
-## 핵심 기능
+## 현재 구현 범위 (Phase 01~13)
 
 - PDF/TXT/MD Parsing
 - Recursive Chunking
@@ -33,6 +33,10 @@
 - Document Summary
 - Query Rewrite
 - Multi-turn Context 관리
+- Health/Readiness와 문서 처리 Internal REST
+
+Phase 14~20에서 구현할 항목:
+
 - Agent Tool Calling
 - LLM/Agent Usage 측정
 - Observable Execution Trace
@@ -165,8 +169,13 @@ curl.exe http://localhost:8000/ready
 ```powershell
 curl.exe -X POST http://localhost:8000/internal/documents `
   -H "Content-Type: application/json" `
+  -H "X-Request-ID: req-001" `
   -d '{"request_id":"req-001","user_id":"user-123","document_id":"doc-001","storage_key":"documents/doc-001/source.pdf"}'
 ```
+
+`X-Request-ID`를 전달하면 body/query의 `request_id`와 같아야 한다. 헤더가 없으면 body/query 값을
+요청 Context, 구조화 로그, 응답 헤더에 사용한다. 값이 다르면 HTTP 422와
+`REQUEST_ID_MISMATCH`를 반환한다.
 
 처리 성공은 `COMPLETED`, 단계별 실패는 `FAILED`와 표준 `failure_reason`으로 반환한다.
 `user_id`는 일반 사용자 입력이 아니라 Backend가 검증해 전달한 실행 Context여야 한다.
@@ -189,13 +198,17 @@ TOP_K=5
 SCORE_THRESHOLD=0.5
 ```
 
-개발 Collection의 검색 결과와 Citation용 Metadata는 CLI로 직접 확인할 수 있다.
+개발 Collection의 검색 결과와 Citation용 Metadata는 수동 실행 스크립트로 직접 확인할 수 있다.
+각 파일 상단의 대문자 변수만 수정하고 저장소 루트에서 `.py`를 실행한다. Secret과 Provider 설정은
+코드에 쓰지 않고 `.env`에 둔다.
 
 ```powershell
-.\.venv\Scripts\python.exe -m scripts.inspect_retrieval `
-  --user-id user-001 `
-  --document-ids doc-001 doc-002 `
-  --query "Qdrant의 장점은 무엇인가?"
+.\.venv\Scripts\python.exe scripts\manual_chunking.py
+.\.venv\Scripts\python.exe scripts\manual_ingestion.py
+.\.venv\Scripts\python.exe scripts\manual_retrieval.py
+.\.venv\Scripts\python.exe scripts\manual_rag.py
+.\.venv\Scripts\python.exe scripts\manual_summary.py
+.\.venv\Scripts\python.exe scripts\manual_llm.py
 ```
 
 Agent 없는 순수 RAG는 Retrieval 결과를 token 상한 내 JSON Context로 구성하고, 전용 RAG Prompt로
@@ -206,21 +219,16 @@ LLM 답변을 생성한다. Citation은 LLM 문자열이 아니라 실제 Contex
 MAX_CONTEXT_TOKENS=12000
 ```
 
-개발 환경에서는 Agent와 분리된 CLI로 RAG 전체 흐름을 직접 확인할 수 있다.
-
-```powershell
-.\.venv\Scripts\python.exe -m scripts.inspect_rag `
-  --user-id user-001 `
-  --document-ids doc-001 doc-002 `
-  --question "Qdrant의 장점은 무엇인가?"
-```
-
 테스트와 정적 검사:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
 .\.venv\Scripts\python.exe -m ruff check .
+.\.venv\Scripts\python.exe -m mypy
+.\.venv\Scripts\python.exe -m pytest --cov=app --cov-report=term-missing
 ```
 
-`/ready`는 애플리케이션 설정, Qdrant 연결, MinIO 연결과 bucket 접근을 확인한다. 개발환경에서
-`MINIO_AUTO_CREATE_BUCKET=true`이면 애플리케이션 시작 시 설정된 bucket 생성을 시도한다.
+`/health`는 프로세스 생존만 확인한다. `/ready`는 필수 Infrastructure 설정, Qdrant 연결, MinIO 연결과
+bucket 접근, 현재 노출된 문서 처리 서비스의 조립 및 필수 Embedding 설정을 모두 확인한다. 운영상 문서
+처리 기능 없이 서버를 준비 상태로 둘 필요가 있을 때만 `READINESS_REQUIRE_DOCUMENT_PROCESSING=false`를
+명시한다. 개발환경에서 `MINIO_AUTO_CREATE_BUCKET=true`이면 시작 시 설정된 bucket 생성을 시도한다.

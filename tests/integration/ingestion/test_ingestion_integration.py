@@ -118,8 +118,7 @@ def test_txt_md_pdf_ingestion_through_http_and_qdrant_payload() -> None:
                 assert payload["document_id"] == document_id
                 assert payload["user_id"] == "phase07-user"
                 assert payload["filename"] == filename
-                assert isinstance(payload["page"], int)
-                assert payload["page"] >= 1
+                assert payload["page"] == (1 if filename.endswith(".pdf") else None)
                 assert payload["chunk_id"] == str(points[0].id)
                 assert payload["chunk_text"]
     finally:

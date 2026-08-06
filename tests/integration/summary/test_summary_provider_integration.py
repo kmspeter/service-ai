@@ -6,7 +6,7 @@ import pytest
 
 from app.core.config import Settings
 from app.factories.summary import create_document_summary_service
-from app.infrastructure import create_infrastructure_clients
+from app.infrastructure import create_infrastructure_resources
 from app.models.summary import SummaryRequest, SummaryStrategy
 from app.ports.qdrant import VectorPoint
 
@@ -55,7 +55,7 @@ def test_real_minio_qdrant_and_llm_direct_and_hierarchical_summary() -> None:
             chunk_overlap=50,
         )
         settings.validate_summary_settings()
-        infrastructure = create_infrastructure_clients(settings)
+        infrastructure = create_infrastructure_resources(settings)
         summary = None
         stored_keys: list[str] = []
         collection_created = False
@@ -101,10 +101,15 @@ def test_real_minio_qdrant_and_llm_direct_and_hierarchical_summary() -> None:
 
             summary = create_document_summary_service(settings, infrastructure)
             direct = await summary.summarize(
-                SummaryRequest(user_id=user_id, document_id=direct_document_id)
+                SummaryRequest(
+                    request_id="summary-direct-integration",
+                    user_id=user_id,
+                    document_id=direct_document_id,
+                )
             )
             hierarchical = await summary.summarize(
                 SummaryRequest(
+                    request_id="summary-hierarchical-integration",
                     user_id=user_id,
                     document_id=hierarchical_document_id,
                 )

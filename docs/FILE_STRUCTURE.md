@@ -22,15 +22,20 @@ service-ai/
 │  │  ├─ exceptions.py          # 외부 노출용 표준 오류 계약
 │  │  ├─ logging.py             # JSON logging
 │  │  └─ request_context.py      # request_id middleware/context
+│  ├─ chunking/
+│  │  └─ recursive.py            # Token 측정과 위치 경계 보존 Recursive Chunking
 │  ├─ ports/
-│  │  ├─ qdrant.py              # QdrantRepository Protocol/DTO
-│  │  ├─ storage.py              # ObjectStorage Protocol/DTO
-│  │  ├─ llm.py                  # LLMProvider Protocol과 공통 Request/Result/Usage
-│  │  └─ embedding.py            # EmbeddingProvider Protocol과 공통 Result/Usage
+│  │  ├─ documents.py            # 문서 처리/관리 Application Protocol
+│  │  ├─ qdrant.py               # Runtime/Admin Qdrant Protocol과 경계 DTO
+│  │  ├─ storage.py              # Runtime/Admin Object Storage Protocol과 경계 DTO
+│  │  ├─ llm.py                  # LLMProvider Protocol
+│  │  └─ embedding.py            # EmbeddingProvider Protocol
 │  ├─ models/
 │  │  ├─ document.py             # Parser/Chunk/DocumentStatistics 내부 모델
 │  │  ├─ context.py              # Conversation/RAG Context 예산 결과 내부 모델
+│  │  ├─ embedding.py            # Provider 중립 Embedding Result/Usage 모델
 │  │  ├─ ingestion.py            # 처리 Context/Result/표준 실패 사유 내부 모델
+│  │  ├─ llm.py                  # Provider 중립 LLM Request/Result/Usage 모델
 │  │  ├─ query_rewrite.py         # 대화 기반 검색 질의 재작성 내부 모델
 │  │  ├─ retrieval.py            # Retrieval Request와 Citation-ready Result 내부 모델
 │  │  ├─ rag.py                   # Pure RAG Request/Response와 Citation 내부 모델
@@ -48,13 +53,12 @@ service-ai/
 │  │  ├─ pdf.py                  # PyMuPDF Page Text Parser
 │  │  └─ registry.py             # 확장자별 Parser 선택의 단일 진입점
 │  ├─ services/
-│  │  ├─ chunking.py             # Token 측정과 위치 경계 보존 Recursive Chunking
 │  │  ├─ context.py              # RAG Context 예산 조립
 │  │  ├─ conversation_compaction.py # 대화 압축과 최근 메시지 보존 정책
 │  │  ├─ document_management.py  # Scoped Vector 삭제, 상태 Registry/조회, 문서 작업 Lock
 │  │  ├─ ingestion.py            # 문서 Ingestion 오케스트레이션과 재처리 정책
 │  │  ├─ ingestion_preparation.py # 저장소 읽기/Parsing/Chunking 준비 단계
-│  │  ├─ ingestion_support.py     # Ingestion 측정/임베딩 Batch/Vector Point 조립
+│  │  ├─ ingestion_components.py  # Ingestion 측정/임베딩 Batch/Vector Point 조립
 │  │  ├─ query_rewrite.py         # 대화 기반 Retrieval Query 재작성
 │  │  ├─ retrieval.py            # Query Embedding과 scoped Dense Vector Retrieval
 │  │  ├─ rag_context.py          # Metadata/Text 분리 및 token 상한 Context Builder
@@ -62,7 +66,8 @@ service-ai/
 │  │  ├─ summary.py              # scoped 원문 로딩과 문서 요약 진입점
 │  │  ├─ summary_execution.py    # 직접/계층형 요약 실행과 Token Budget 정책
 │  │  ├─ llm.py                  # Provider 중립 LLM Application Service
-│  │  └─ embedding.py            # 단일/Batch Embedding과 Qdrant Dimension 정책
+│  │  ├─ embedding.py            # 단일/Batch Embedding 검증
+│  │  └─ vector_collection.py    # Qdrant Collection 존재/Dimension 정책
 │  ├─ factories/
 │  │  ├─ chunking.py             # 설정 기반 TokenCounter/Chunker 조립
 │  │  ├─ document_management.py  # Document Management Service 조립
@@ -75,25 +80,27 @@ service-ai/
 │  ├─ schemas/
 │  │  ├─ documents.py           # Internal Document 처리/삭제/상태 DTO
 │  │  └─ health.py              # Health/Readiness response schema
-│  ├─ infrastructure.py         # Adapter 조립 및 lifecycle container
-│  └─ main.py                   # FastAPI application factory
+│  ├─ infrastructure.py         # Qdrant/MinIO Resource 조립 및 종료
+│  ├─ composition.py            # Application Service 조립, 소유권, lifecycle 경계
+│  └─ main.py                   # FastAPI application factory와 lifespan 연결
 ├─ scripts/
-│  ├─ inspect_chunking.py        # Parser → Chunking 개발 확인 CLI
-│  ├─ inspect_retrieval.py       # 사용자/문서 범위 Retrieval 결과 확인 CLI
-│  ├─ inspect_rag.py             # Agent 없는 Pure RAG 전체 흐름 확인 CLI
-│  └─ test_llm.py               # Agent/RAG와 무관한 실제 LLM 호출 CLI
+│  ├─ manual_chunking.py         # 파일 상단 변수 기반 Parser → Chunking 실행
+│  ├─ manual_ingestion.py        # 파일 상단 변수 기반 Ingestion 실행
+│  ├─ manual_retrieval.py        # 파일 상단 변수 기반 scoped Retrieval 실행
+│  ├─ manual_rag.py              # 파일 상단 변수 기반 Pure RAG 실행
+│  ├─ manual_summary.py          # 파일 상단 변수 기반 Document Summary 실행
+│  └─ manual_llm.py              # 파일 상단 변수 기반 실제 LLM 호출
 ├─ tests/
 │  ├─ fixtures/documents/        # 비민감 TXT/MD/PDF Parser Fixture
-│  ├─ unit/parsers/              # Parser/Registry/Normalized Document Unit Test
-│  ├─ unit/chunking/             # Token/Recursive Chunking/Metadata Unit Test
-│  ├─ unit/adapters/            # SDK 오류 변환 Unit Test
+│  ├─ unit/                      # 단일 클래스/함수와 Adapter 오류 변환
+│  ├─ component/                 # 여러 Service를 Fake Port로 조립한 결정적 흐름
+│  ├─ contract/                  # FastAPI HTTP/오류/헤더 계약
+│  ├─ smoke/                     # 수동 스크립트 import 및 직접 실행 가능성
 │  ├─ integration/qdrant/       # 실제 Qdrant 및 Embedding Dimension Integration Test
 │  ├─ integration/embedding/    # 실제 Embedding Provider Integration Test
 │  ├─ integration/ingestion/    # 실제 MinIO/Qdrant/Embedding Pipeline Test
 │  ├─ integration/retrieval/    # 실제 Qdrant 및 선택형 Embedding Retrieval Test
 │  ├─ integration/minio/        # 실제 MinIO Integration Test
-│  ├─ integration/              # FastAPI endpoint/error Integration Test
-│  ├─ unit/                     # application/config/logging Unit Test
 │  ├─ conftest.py               # 공통 설정과 Adapter fake 주입
 │  └─ fakes.py                  # SDK에 의존하지 않는 test doubles
 ├─ docs/                        # 범위/설계/계약/테스트/진행 문서
@@ -113,6 +120,10 @@ NormalizedDocument / ContentUnit
 
 FastAPI API
     ↓
+Document Application Port
+    ↓
+Application Service → Domain Model
+    ↓
 QdrantRepository / ObjectStorage / LLMProvider / EmbeddingProvider (Port)
     ↓
 QdrantAdapter / MinIOStorageAdapter / LLM Adapters / Embedding Adapters
@@ -121,6 +132,10 @@ External SDK / Qdrant / MinIO
 ```
 
 - API와 향후 Application Service/Tool은 외부 SDK를 직접 호출하지 않는다.
+- `main.py`는 HTTP/lifespan만 연결하고 실제 생성·소유권·종료 순서는 `ApplicationContainer`가 담당한다.
+- 외부에서 주입된 Resource/Service는 호출자 소유이며 Container가 닫지 않는다.
+- Provider 중립 Request/Result/Usage는 `models/`에 두고 `ports/`는 Protocol에 집중한다.
+- Runtime Port에는 앱 기능만, Admin Port에는 Collection/Bucket 생성·삭제 같은 운영/테스트 기능만 둔다.
 - MinIO는 원본 문서 Object만 저장한다.
 - Qdrant는 Chunk/Vector/Retrieval Metadata만 저장하며 원본 파일 저장소로 사용하지 않는다.
 - 기본 Embedding은 DeepInfra `Qwen/Qwen3-Embedding-8B`이고 Qdrant Vector Dimension은 4096다.

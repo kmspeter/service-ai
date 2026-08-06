@@ -1,4 +1,3 @@
-import argparse
 import asyncio
 import json
 from dataclasses import asdict
@@ -9,23 +8,17 @@ from app.factories.embedding import create_embedding_service
 from app.models.retrieval import RetrievalRequest
 from app.services.retrieval import RetrievalService
 
-
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Embed a query and inspect scoped Qdrant retrieval results."
-    )
-    parser.add_argument("--user-id", required=True)
-    parser.add_argument("--query", required=True)
-    document_scope = parser.add_mutually_exclusive_group()
-    document_scope.add_argument("--document-id")
-    document_scope.add_argument("--document-ids", nargs="+")
-    parser.add_argument("--top-k", type=int)
-    parser.add_argument("--score-threshold", type=float)
-    parser.add_argument("--request-id", default="retrieval-inspection")
-    return parser
+# Manual configuration: edit these values and provider settings in .env, then run.
+REQUEST_ID = "manual-retrieval"
+USER_ID = "manual-user"
+QUERY = "Qdrant의 장점은 무엇인가?"
+DOCUMENT_ID: str | None = None
+DOCUMENT_IDS: tuple[str, ...] = ("manual-document",)
+TOP_K: int | None = None
+SCORE_THRESHOLD: float | None = None
 
 
-async def _run(args: argparse.Namespace) -> None:
+async def _run() -> None:
     settings = Settings()
     settings.validate_retrieval_settings()
     assert settings.qdrant_url is not None
@@ -48,13 +41,13 @@ async def _run(args: argparse.Namespace) -> None:
     try:
         results = await service.retrieve(
             RetrievalRequest(
-                request_id=args.request_id,
-                user_id=args.user_id,
-                query=args.query,
-                document_id=args.document_id,
-                document_ids=tuple(args.document_ids or ()),
-                top_k=args.top_k,
-                score_threshold=args.score_threshold,
+                request_id=REQUEST_ID,
+                user_id=USER_ID,
+                query=QUERY,
+                document_id=DOCUMENT_ID,
+                document_ids=DOCUMENT_IDS,
+                top_k=TOP_K,
+                score_threshold=SCORE_THRESHOLD,
             )
         )
         print(json.dumps([asdict(result) for result in results], ensure_ascii=False, indent=2))
@@ -64,8 +57,7 @@ async def _run(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    args = _parser().parse_args()
-    asyncio.run(_run(args))
+    asyncio.run(_run())
 
 
 if __name__ == "__main__":

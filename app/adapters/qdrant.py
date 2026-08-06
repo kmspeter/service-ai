@@ -51,6 +51,7 @@ class QdrantAdapter:
             api_key=api_key,
             timeout=timeout_seconds,
             prefer_grpc=False,
+            # Connection/version checks belong to /ready, not object construction.
             check_compatibility=False,
         )
 

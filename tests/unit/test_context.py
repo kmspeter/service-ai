@@ -2,10 +2,10 @@ import asyncio
 
 import pytest
 
-from app.core.exceptions import ContextBudgetError
+from app.chunking import TokenCounter
+from app.core.exceptions import ContextBudgetError, LLMConnectionError
 from app.models.query_rewrite import ConversationMessage
 from app.models.retrieval import RetrievalResult
-from app.services.chunking import TokenCounter
 from app.services.context import ContextBudgetManager
 from app.services.rag_context import RAGContextBuilder
 from tests.fakes import RecordingLLM
@@ -241,3 +241,41 @@ def test_current_question_that_cannot_fit_fails_before_any_llm_call() -> None:
         )
 
     assert llm.requests == []
+
+
+def test_provider_failure_falls_back_to_existing_summary(caplog: pytest.LogCaptureFixture) -> None:
+    manager, llm, _ = _manager(max_recent_messages=1)
+    llm.error = LLMConnectionError("fake")
+
+    conversation = asyncio.run(
+        manager.prepare_conversation(
+            conversation_summary="existing summary",
+            recent_messages=(_message(0), _message(1)),
+            current_question="follow-up question",
+            request_id="req-context-fallback",
+        )
+    )
+
+    assert conversation.summary == "existing summary"
+    assert conversation.summary_generated is False
+    assert "Conversation summary fallback" in caplog.text
+    assert any(
+        getattr(record, "request_id", None) == "req-context-fallback"
+        and getattr(record, "error_code", None) == "LLM_CONNECTION_FAILED"
+        for record in caplog.records
+    )
+
+
+def test_unexpected_summary_error_is_not_silently_fallbacked() -> None:
+    manager, llm, _ = _manager(max_recent_messages=1)
+    llm.error = RuntimeError("programming failure")
+
+    with pytest.raises(RuntimeError, match="programming failure"):
+        asyncio.run(
+            manager.prepare_conversation(
+                conversation_summary=None,
+                recent_messages=(_message(0), _message(1)),
+                current_question="follow-up question",
+                request_id="req-context-error",
+            )
+        )

@@ -441,3 +441,55 @@ UUID5 입력은 길이로 구분한 `user_id + document_id + chunk_index` 조합
 
 같은 사용자의 같은 문서를 같은 Chunk 설정으로 재처리하면 ID가 유지되고,
 서로 다른 사용자가 같은 `document_id`를 사용해도 Point ID가 충돌하지 않는다.
+
+---
+
+## D033 — Application 조립과 Lifecycle은 Container에서 관리한다
+
+**Decision**
+
+`ApplicationContainer`가 현재 Phase의 Service와 Infrastructure Resource를 조립한다. FastAPI
+`lifespan`은 Container의 `start()`/`close()`만 호출한다. Container가 직접 생성한 의존성만 닫고,
+테스트나 수동 실행에서 주입한 의존성은 호출자가 소유한다.
+
+Phase 14 이후 Tool/Agent/WebSocket Service도 같은 Composition Root에 추가한다. API, Tool 또는
+Service 내부에서 외부 SDK Client를 임의 생성하지 않는다.
+
+---
+
+## D034 — REST request_id는 Header와 Contract 값이 하나여야 한다
+
+**Decision**
+
+`X-Request-ID`가 없으면 POST body 또는 query의 `request_id`를 요청 Context, 로그, 응답 body와
+응답 헤더에 사용한다. 헤더가 있으면 계약 값과 정확히 일치해야 하며, 불일치는
+`REQUEST_ID_MISMATCH` 422로 거부한다.
+
+---
+
+## D035 — Readiness는 현재 노출한 Application 기능까지 확인한다
+
+**Decision**
+
+`/ready`는 Qdrant/MinIO 연결만으로 준비 완료를 선언하지 않는다. 기본 설정에서는 문서 처리에 필요한
+설정과 Ingestion/Management Service 조립 여부도 확인한다. 의도적으로 해당 기능을 제외한 배포만
+`READINESS_REQUIRE_DOCUMENT_PROCESSING=false`를 사용한다.
+
+---
+
+## D036 — 품질 저하 Fallback은 예상된 Application 오류에만 적용한다
+
+**Decision**
+
+Query Rewrite와 Conversation Summary는 Provider/검증 등 표준 `ApplicationError`에 대해서만 원래
+질의/기존 요약으로 fallback하고, `request_id`, `operation`, `status=fallback`, `error_code`를
+구조화 로그로 남긴다. 프로그래밍 오류를 포함한 예상 밖 예외는 숨기지 않고 전파한다.
+
+---
+
+## D037 — Provider 중립 모델과 Port를 분리한다
+
+**Decision**
+
+LLM/Embedding Request, Result, Usage는 `app/models/`에 둔다. `app/ports/`는 Protocol과 외부 경계에
+필요한 최소 DTO만 가지며, Runtime 기능과 Collection/Bucket 관리 기능은 별도 Protocol로 분리한다.

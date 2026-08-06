@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
 from app.models.context import ContextTokenUsage, ManagedConversation
+from app.models.llm import LLMResult
 from app.models.query_rewrite import ConversationMessage, QueryRewriteResult
 from app.models.retrieval import RetrievalResult
-from app.ports.llm import LLMResult
 
 
 @dataclass(frozen=True, slots=True)
