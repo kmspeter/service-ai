@@ -10,6 +10,7 @@ from app.models.retrieval import RetrievalResult
 from app.ports.llm import LLMRequest, LLMResult, LLMUsage
 from app.prompts.rag import INSUFFICIENT_EVIDENCE_ANSWER
 from app.services.chunking import TokenCounter
+from app.services.context import ContextBudgetManager
 from app.services.rag import RAGService
 from app.services.rag_context import RAGContextBuilder
 
@@ -99,15 +100,25 @@ def _service(
     retrieval = RecordingRetriever(results)
     llm = RecordingLLM(answer)
     query_rewriter = RecordingQueryRewriter()
+    token_counter = TokenCounter(
+        model_name="text-embedding-3-small",
+        encoding_name="cl100k_base",
+    )
+    context_builder = RAGContextBuilder(
+        token_counter=token_counter,
+        max_context_tokens=max_context_tokens,
+    )
     service = RAGService(
         retrieval=retrieval,
         llm=llm,
-        context_builder=RAGContextBuilder(
-            token_counter=TokenCounter(
-                model_name="text-embedding-3-small",
-                encoding_name="cl100k_base",
-            ),
-            max_context_tokens=max_context_tokens,
+        context_manager=ContextBudgetManager(
+            token_counter=token_counter,
+            llm=llm,
+            rag_context_builder=context_builder,
+            context_window=4_096,
+            reserved_output_tokens=256,
+            summary_max_output_tokens=128,
+            max_recent_messages=10,
         ),
         query_rewriter=query_rewriter,
     )
@@ -145,6 +156,9 @@ def test_grounded_answer_uses_retrieved_chunk_and_application_citation() -> None
     assert '"metadata"' in llm.request.content
     assert '"content"' in llm.request.content
     assert "Citation은 애플리케이션이" in llm.request.content
+    assert llm.request.max_output_tokens == 256
+    assert response.context_token_usage is not None
+    assert response.context_token_usage.input_tokens <= 4_096 - 256
 
 
 def test_no_retrieval_evidence_returns_safe_answer_without_llm_or_citation() -> None:
@@ -164,6 +178,7 @@ def test_no_retrieval_evidence_returns_safe_answer_without_llm_or_citation() -> 
     assert response.citations == ()
     assert response.context_results == ()
     assert response.context_token_count == 0
+    assert response.context_token_usage is None
     assert response.llm_result is None
     assert llm.request is None
 

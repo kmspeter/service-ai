@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     llm_context_window: int | None = Field(default=None, ge=128, le=2_000_000)
     llm_temperature: float | None = Field(default=None, ge=0, le=2)
     summary_safety_margin_tokens: int = Field(default=256, ge=0, le=100_000)
+    conversation_summary_max_output_tokens: int = Field(
+        default=512, ge=1, le=100_000
+    )
+    max_recent_messages: int = Field(default=10, ge=1, le=1_000)
     embedding_provider: Literal["openai", "huggingface"] = "huggingface"
     embedding_api_key: SecretStr | None = None
     hf_token: SecretStr | None = None
@@ -89,6 +93,7 @@ class Settings(BaseSettings):
     rag_required_settings: ClassVar[tuple[str, ...]] = (
         *retrieval_required_settings,
         *llm_required_settings,
+        "llm_context_window",
     )
     summary_required_settings: ClassVar[tuple[str, ...]] = (
         *infrastructure_required_settings,

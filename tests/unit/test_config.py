@@ -125,6 +125,18 @@ def test_summary_budget_settings_load_from_environment(
     assert settings.summary_safety_margin_tokens == 384
 
 
+def test_context_budget_settings_load_from_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CONVERSATION_SUMMARY_MAX_OUTPUT_TOKENS", "256")
+    monkeypatch.setenv("MAX_RECENT_MESSAGES", "8")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.conversation_summary_max_output_tokens == 256
+    assert settings.max_recent_messages == 8
+
+
 def test_summary_settings_require_model_context_window() -> None:
     settings = Settings(
         environment="test",
@@ -143,6 +155,27 @@ def test_summary_settings_require_model_context_window() -> None:
 
     with pytest.raises(SettingsConfigurationError) as exc_info:
         settings.validate_summary_settings()
+
+    assert exc_info.value.missing_fields == ("llm_context_window",)
+
+
+def test_rag_settings_require_model_context_window() -> None:
+    settings = Settings(
+        environment="test",
+        llm_provider="openai",
+        llm_api_key="test-secret",
+        llm_model="test-model",
+        llm_context_window=None,
+        qdrant_url="http://qdrant.test:6333",
+        qdrant_collection="documents",
+        embedding_provider="huggingface",
+        hf_token="hf-test-secret",
+        embedding_model="unsloth/Qwen3-Embedding-0.6B",
+        _env_file=None,
+    )
+
+    with pytest.raises(SettingsConfigurationError) as exc_info:
+        settings.validate_rag_settings()
 
     assert exc_info.value.missing_fields == ("llm_context_window",)
 

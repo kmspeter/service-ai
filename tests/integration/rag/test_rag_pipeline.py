@@ -6,6 +6,7 @@ from app.ports.embedding import EmbeddingBatchResult, EmbeddingUsage
 from app.ports.llm import LLMRequest, LLMResult, LLMUsage
 from app.ports.qdrant import VectorSearchHit
 from app.services.chunking import TokenCounter
+from app.services.context import ContextBudgetManager
 from app.services.embedding import EmbeddingService
 from app.services.rag import RAGService
 from app.services.rag_context import RAGContextBuilder
@@ -102,16 +103,26 @@ def _service(hits: tuple[VectorSearchHit, ...]) -> tuple[RAGService, EvidenceAwa
         top_k=5,
         score_threshold=0.5,
     )
+    token_counter = TokenCounter(
+        model_name="text-embedding-3-small",
+        encoding_name="cl100k_base",
+    )
+    context_builder = RAGContextBuilder(
+        token_counter=token_counter,
+        max_context_tokens=2_000,
+    )
     return (
         RAGService(
             retrieval=retrieval,
             llm=llm,
-            context_builder=RAGContextBuilder(
-                token_counter=TokenCounter(
-                    model_name="text-embedding-3-small",
-                    encoding_name="cl100k_base",
-                ),
-                max_context_tokens=2_000,
+            context_manager=ContextBudgetManager(
+                token_counter=token_counter,
+                llm=llm,
+                rag_context_builder=context_builder,
+                context_window=4_096,
+                reserved_output_tokens=256,
+                summary_max_output_tokens=128,
+                max_recent_messages=10,
             ),
             query_rewriter=NoContextQueryRewriter(),
         ),

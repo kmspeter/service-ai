@@ -85,6 +85,11 @@ class SummaryBudgetError(ApplicationValidationError):
     public_message = "The summary token budget cannot fit the required prompt."
 
 
+class ContextBudgetError(ApplicationValidationError):
+    code = "CONTEXT_TOKEN_BUDGET_EXCEEDED"
+    public_message = "The required LLM input cannot fit the configured context window."
+
+
 class LLMError(ApplicationError):
     """Base class for standardized LLM provider failures."""
 

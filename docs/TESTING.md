@@ -783,11 +783,15 @@ $env:RUN_QUERY_REWRITE_INTEGRATION_TESTS='1'
 
 테스트 케이스:
 
-- History가 짧음
-- History가 매우 김
-- RAG Context가 큼
-- Output Reservation이 큼
+- 2개 Message
+- 20개 Message와 Recent Message Sliding Window
+- 매우 긴 과거 Message의 bounded summary 호출
+- 매우 큰 RAG Context의 Chunk/길이 축소
+- 기존 Conversation Summary 존재
+- Conversation Summary 없음
 - Context Window 근접
+- Output Reservation 선반영
+- Current Question 자체가 필수 Prompt 예산을 넘는 경우 LLM 호출 전 명시적 실패
 
 검증:
 
@@ -806,6 +810,25 @@ Reserved Output
 ```
 
 정확한 Token 계산 방법은 선택한 모델/Tokenizer 구현에 맞춘다.
+
+정책:
+
+- `LLM_CONTEXT_WINDOW - LLM_MAX_OUTPUT_TOKENS`를 실제 입력 상한으로 먼저 확정한다.
+- `MAX_RECENT_MESSAGES`를 넘거나 입력 상한에 맞지 않는 가장 오래된 Message부터 제거한다.
+- 제거되는 History는 별도 Conversation Summary Prompt로 bounded batch 요약한다.
+- Query Rewrite와 최종 Answer에는 압축된 동일 Conversation Context만 전달한다.
+- RAG Context는 `MAX_CONTEXT_TOKENS`와 최종 Prompt의 실제 남은 예산 중 작은 값으로 제한한다.
+- 최종 `input_tokens`는 완성된 Prompt 전체를 다시 Tokenizer로 측정한다.
+
+Phase 13 Unit 및 RAG 경계 검증:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest `
+  tests\unit\test_context.py `
+  tests\unit\test_rag.py `
+  tests\unit\test_config.py `
+  tests\integration\rag\test_rag_pipeline.py -q
+```
 
 ---
 

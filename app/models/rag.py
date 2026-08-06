@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from app.models.context import ContextTokenUsage, ManagedConversation
 from app.models.query_rewrite import ConversationMessage, QueryRewriteResult
 from app.models.retrieval import RetrievalResult
 from app.ports.llm import LLMResult
@@ -42,3 +43,5 @@ class RAGResponse:
     context_token_count: int
     llm_result: LLMResult | None
     query_rewrite: QueryRewriteResult
+    conversation_context: ManagedConversation
+    context_token_usage: ContextTokenUsage | None

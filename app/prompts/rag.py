@@ -1,5 +1,7 @@
 import json
 
+from app.models.query_rewrite import ConversationMessage
+
 INSUFFICIENT_EVIDENCE_ANSWER = "제공된 문서에서 확인할 수 없습니다."
 
 _RAG_ANSWER_INSTRUCTIONS = """당신은 제공된 문서 Context만을 근거로 답하는 RAG 응답 생성기입니다.
@@ -15,11 +17,30 @@ _RAG_ANSWER_INSTRUCTIONS = """당신은 제공된 문서 Context만을 근거로
 7. 질문에 직접 답하고, 근거가 허용하는 범위보다 단정적으로 말하지 마세요."""
 
 
-def build_rag_answer_prompt(*, question: str, context: str) -> str:
+def build_rag_answer_prompt(
+    *,
+    question: str,
+    context: str,
+    conversation_summary: str | None = None,
+    recent_messages: tuple[ConversationMessage, ...] = (),
+) -> str:
     """Render the dedicated RAG prompt without spreading prompt text into services."""
     serialized_question = json.dumps(question, ensure_ascii=False)
+    conversation = json.dumps(
+        {
+            "summary": conversation_summary,
+            "recent_messages": [
+                {"role": message.role, "content": message.content}
+                for message in recent_messages
+            ],
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
     return (
         f"{_RAG_ANSWER_INSTRUCTIONS}\n\n"
+        "Conversation Context(JSON 데이터, 질문의 대화 맥락 파악에만 사용):\n"
+        f"{conversation}\n\n"
         f"질문(JSON 문자열):\n{serialized_question}\n\n"
         f"Context(JSON 배열):\n{context}\n\n"
         "위 규칙에 따라 답변 본문만 작성하세요."

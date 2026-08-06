@@ -24,14 +24,31 @@ class RAGContextBuilder:
         self._token_counter = token_counter
         self._max_context_tokens = max_context_tokens
 
-    def build(self, results: tuple[RetrievalResult, ...]) -> RAGContext:
+    def build(
+        self,
+        results: tuple[RetrievalResult, ...],
+        *,
+        max_context_tokens: int | None = None,
+    ) -> RAGContext:
+        token_limit = (
+            self._max_context_tokens
+            if max_context_tokens is None
+            else min(self._max_context_tokens, max_context_tokens)
+        )
+        if token_limit < 1:
+            empty = _serialize([])
+            return RAGContext(
+                content=empty,
+                results=(),
+                token_count=self._token_counter.count(empty),
+            )
         entries: list[dict[str, Any]] = []
         included: list[RetrievalResult] = []
 
         for result in results:
             entry = _entry(result)
             candidate = _serialize([*entries, entry])
-            if self._token_counter.count(candidate) <= self._max_context_tokens:
+            if self._token_counter.count(candidate) <= token_limit:
                 entries.append(entry)
                 included.append(result)
                 continue
@@ -39,7 +56,7 @@ class RAGContextBuilder:
             if entries:
                 break
 
-            truncated = self._truncate_first_entry(entry)
+            truncated = self._truncate_first_entry(entry, token_limit=token_limit)
             if truncated is not None:
                 entries.append(truncated)
                 included.append(result)
@@ -52,7 +69,9 @@ class RAGContextBuilder:
             token_count=self._token_counter.count(content),
         )
 
-    def _truncate_first_entry(self, entry: dict[str, Any]) -> dict[str, Any] | None:
+    def _truncate_first_entry(
+        self, entry: dict[str, Any], *, token_limit: int
+    ) -> dict[str, Any] | None:
         original = entry["content"]
         low = 0
         high = len(original)
@@ -64,7 +83,7 @@ class RAGContextBuilder:
                 content += "…"
             candidate = {**entry, "content": content}
             token_count = self._token_counter.count(_serialize([candidate]))
-            if token_count <= self._max_context_tokens:
+            if token_count <= token_limit:
                 best = candidate
                 low = midpoint + 1
             else:

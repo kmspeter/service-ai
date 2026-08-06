@@ -40,7 +40,7 @@ VERIFIED
 | 10 | Agent 없는 RAG + Citation | VERIFIED | Unit 22 + 실제 Embedding/Qdrant/LLM E2E + 외부 포함 전체 234 tests 통과 |
 | 11 | Document Summary | VERIFIED | Unit 26 + 실제 MinIO/Qdrant/Gemini E2E + 전체 Regression 통과 |
 | 12 | Query Rewrite | VERIFIED | Unit/RAG 19 + 실제 Gemini Prompt E2E + 전체 243 tests 통과 |
-| 13 | Context & Token Budget Manager | NOT_STARTED | - |
+| 13 | Context & Token Budget Manager | VERIFIED | Unit/RAG 35 + 전체 253 tests 통과 |
 | 14 | Tool Layer | NOT_STARTED | - |
 | 15 | Agent Tool Calling | NOT_STARTED | - |
 | 16 | Usage Aggregation | NOT_STARTED | - |
@@ -54,7 +54,7 @@ VERIFIED
 ## 현재 Phase
 
 ```text
-Phase: 12
+Phase: 13
 Status: VERIFIED
 ```
 
@@ -62,36 +62,32 @@ Status: VERIFIED
 
 ## 구현 완료
 
-- `Conversation Summary`, `Recent Messages`, `Current Message`를 분리 입력하는 `QueryRewriteService` 구현
-- `original_query`, `rewritten_query`, `was_rewritten`, `status`를 분리한 불변 결과 모델 구현
-- 대화 Context가 없으면 LLM을 호출하지 않고 원문 Query를 사용하는 명시적 호출 정책 구현
-- Context가 있으면 LLM이 Rewrite 필요 여부를 판단하고, 독립 질문은 원문을 유지하는 정책 구현
-- `SKIPPED_NO_CONTEXT`, `UNCHANGED`, `REWRITTEN`, `FALLBACK` 상태로 판단 결과를 식별 가능하게 구현
-- 별도 `app/prompts/query_rewrite.py`에서 답변 생성 금지, 짧은 독립 Query, JSON 출력 규칙 관리
-- Provider 오류, 비정상 JSON, 빈 Query, 500자 초과 Query는 원문 Retrieval Query로 fallback
-- RAG Pipeline에서 재작성 Query는 Retrieval에만 사용하고 최종 답변 Prompt에는 원문 질문을 유지
-- Query Rewrite와 RAG Answer가 하나의 LLM 경계를 공유하되 종료는 RAG Service가 한 번만 수행
-- Agent Tool Calling, Phase 13 Context Token Budget Manager, WebSocket/API Contract는 구현하지 않음
+- Backend가 전달한 `Conversation Summary`와 `Recent Messages`만 가공하는 `ContextBudgetManager` 구현
+- `LLM_CONTEXT_WINDOW - LLM_MAX_OUTPUT_TOKENS`로 Output 공간을 먼저 예약하고 실제 입력 상한 확정
+- `MAX_RECENT_MESSAGES`와 Token Budget을 함께 적용해 가장 오래된 Message부터 제거하는 Sliding Window 구현
+- 잘리는 History를 bounded batch로 갱신하는 별도 Conversation Summary Prompt 구현
+- Summary Prompt에 입력 외 사실·수치·결론 추가 금지와 대화 내 지시 실행 금지 규칙 적용
+- Query Rewrite와 최종 RAG Answer가 동일한 압축 Conversation Context를 사용하도록 통합
+- Conversation Summary, Recent Messages, RAG Context, Current Question, Prompt, Output Reservation별 Token 계측 모델 구현
+- 최종 완성 Prompt 전체 Token을 다시 측정하고 Context Window 초과 시 LLM 호출 전 명시적 오류 처리
+- 남은 실제 Prompt 예산과 `MAX_CONTEXT_TOKENS`에 따라 RAG Chunk 수/첫 Chunk 길이를 제한
+- 생성·가공한 Summary와 실제 Recent Messages를 응답 내부 모델에 반환해 Backend가 원본/요약을 관리할 경계 유지
+- Conversation 원본 DB, Agent/Tool, WebSocket/API Contract 등 Phase 14 이후 기능은 구현하지 않음
 
 ---
 
 ## 검증
 
-- Phase 11 사전 상태 확인
-  - `docs/PROGRESS.md`: Phase 11 `VERIFIED`, Blocker 없음 확인
-- Query Rewrite Unit 및 RAG 경계 Integration
-  - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_query_rewrite.py tests\unit\test_rag.py tests\integration\rag\test_rag_pipeline.py -q`
-  - Result: PASS (`19 passed`)
-  - `그거`, `그럼`, `위 내용`, 독립 질문, Conversation 없음, Summary-only Context,
-    Provider 실패, 비정상/과도한 출력, 빈 질문, 원문 보존, Retrieval-only Rewrite 검증
-- 실제 Gemini Query Rewrite Prompt E2E
-  - Command: `RUN_QUERY_REWRITE_INTEGRATION_TESTS=1` 적용 후
-    `.\.venv\Scripts\python.exe -m pytest tests\integration\query_rewrite\test_query_rewrite_provider_integration.py -q -s`
-  - Result: PASS (`1 passed`)
-  - 실제 Provider가 `그럼 장점은?`을 Qdrant와 장점을 포함하는 독립 Query로 재작성하고 원문을 보존함
+- Phase 12 사전 상태 확인
+  - `docs/PROGRESS.md`: Phase 12 `VERIFIED`, Blocker 없음 확인
+- Context Budget Unit 및 RAG 경계 Integration
+  - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_context.py tests\unit\test_rag.py tests\unit\test_config.py tests\integration\rag\test_rag_pipeline.py -q`
+  - Result: PASS (`35 passed`)
+  - 2/20개 Message, 매우 긴 Message, 매우 큰 RAG, Summary 유/무, Window 근접,
+    Output Reservation, 최종 Prompt Token 재계산, overflow 사전 실패 검증
 - 전체 회귀
   - Command: `.\.venv\Scripts\python.exe -m pytest -q`
-  - Result: PASS (`243 passed, 16 skipped`)
+  - Result: PASS (`253 passed, 16 skipped`)
   - 비용/외부 Infrastructure가 필요한 조건부 E2E는 비활성
 - Command: `.\.venv\Scripts\python.exe -m ruff check .`
   - Result: PASS
@@ -110,28 +106,28 @@ Status: VERIFIED
 
 ## 미검증 항목
 
-- 없음. 실제 Gemini Query Rewrite Prompt E2E와 전체 비용 없는 회귀를 실행함.
+- 실제 외부 LLM Provider를 사용한 Conversation Summary 생성은 Credential/비용이 필요한 조건부 검증으로 실행하지 않음.
+- Context 계산, 호출별 상한, RAG 통합은 결정적 Fake Provider로 검증 완료.
 
 ---
 
 ## 변경 파일
 
-- `pyproject.toml`
-- `app/models/query_rewrite.py`, `app/models/rag.py`
-- `app/prompts/query_rewrite.py`
-- `app/services/query_rewrite.py`, `app/services/rag.py`, `app/rag.py`
-- `tests/unit/test_query_rewrite.py`, `tests/unit/test_rag.py`
+- `.env.example`
+- `app/core/config.py`, `app/core/exceptions.py`
+- `app/models/context.py`, `app/models/rag.py`
+- `app/prompts/conversation_summary.py`, `app/prompts/rag.py`
+- `app/services/context.py`, `app/services/rag.py`, `app/services/rag_context.py`, `app/rag.py`
+- `tests/unit/test_context.py`, `tests/unit/test_config.py`, `tests/unit/test_rag.py`
 - `tests/integration/rag/test_rag_pipeline.py`
-- `tests/integration/query_rewrite/__init__.py`
-- `tests/integration/query_rewrite/test_query_rewrite_provider_integration.py`
 - `docs/TESTING.md`, `docs/PROGRESS.md`
 
 ---
 
 ## 다음 작업
 
-- Phase 12 필수 범위와 회귀 검증이 완료되어 Phase 13 진행 가능.
-- Phase 13에서는 이번 단계의 Rewrite 입력/결과 경계를 유지한 채 Context Token Budget만 구현한다.
+- Phase 13 필수 범위와 비용 없는 전체 회귀 검증이 완료되어 Phase 14 진행 가능.
+- 다음 Phase에서는 검증된 Service를 중복 구현하지 않고 Tool 경계로 노출한다.
 
 ---
 
