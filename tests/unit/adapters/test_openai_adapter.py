@@ -5,7 +5,7 @@ import httpx
 import openai
 import pytest
 
-from app.adapters.openai import OpenAILLMAdapter
+from app.adapters.llm.openai import OpenAILLMAdapter
 from app.core.exceptions import (
     LLMAuthenticationError,
     LLMAuthorizationError,
@@ -182,7 +182,7 @@ def test_openai_sdk_retry_is_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
         captured.update(parameters)
         return client
 
-    monkeypatch.setattr("app.adapters.openai.AsyncOpenAI", build_client)
+    monkeypatch.setattr("app.adapters.llm.openai.AsyncOpenAI", build_client)
 
     OpenAILLMAdapter(api_key="test-secret", model="test-model")
 

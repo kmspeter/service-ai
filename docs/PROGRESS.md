@@ -43,6 +43,7 @@ VERIFIED
 | 13 | Context & Token Budget Manager | VERIFIED | Unit/RAG 35 + 전체 253 tests 통과 |
 | 14 | Tool Layer | VERIFIED | Tool Unit 15 + 전체 290 tests + branch coverage 87.93% 통과 |
 | 15 | Agent Tool Calling | VERIFIED | Agent Unit/Adapter 17 + 실제 Gemini 분기/경계 + 전체 307 tests + branch coverage 87.70% 통과 |
+| 15.5 | Package Structure Refactor | VERIFIED | 구조 경계 4 tests + 전체 311 tests + branch coverage 87.74% + 전체 mypy 통과 |
 | 16 | Usage Aggregation | NOT_STARTED | - |
 | 17 | WebSocket Event Model | NOT_STARTED | - |
 | 18 | WebSocket Streaming | NOT_STARTED | - |
@@ -54,13 +55,85 @@ VERIFIED
 ## 현재 Phase
 
 ```text
-Phase: 15
+Phase: 15.5
 Status: VERIFIED
 ```
 
 ---
 
-## 구현 완료
+## Phase 15.5 구현 완료
+
+- `codex/phase-15.5-package-structure` 브랜치에서 기능 변경 없는 패키지 구조 정비 수행
+- Agent와 Context-bound Tool을 `app/agent/`로 통합해
+  `services → tools → services` 패키지 순환을 제거하고 `agent → services → ports → adapters`로 단방향화
+- Ingestion/Retrieval/RAG/Summary/Context Service를 기능별 하위 패키지로 구성
+- LLM/Embedding/Storage/Vector/Backend/Agent Adapter를 Provider 종류별 하위 패키지로 구성
+- Container/Infrastructure/Factory를 `app/composition/`으로 통합하고 Factory가 전체 Resource 묶음 대신
+  필요한 `QdrantRepository`, `ObjectStorage` Port를 직접 받도록 정리
+- HTTP Schema를 `app/api/schemas/`로 이동하고 Container 조회를 `api/dependencies.py`로 통일
+- FastAPI 예외 Handler를 `api/error_handlers.py`로 분리해 `core/exceptions.py`의 Transport 의존 제거
+- Service의 상위/Concrete 계층 의존 금지와 Core Exception Transport 독립성을 검사하는 구조 테스트 추가
+- 내부 Application/Test/Script import를 구체 모듈 경로로 통일하고 모든 `app/**/__init__.py`의 암묵적
+  re-export를 제거했으며 이를 검사하는 구조 회귀 테스트 추가
+- 이동한 모듈의 기존 타입 표기 21건을 동작 변경 없이 정리해 저장소 전체 mypy 통과
+- Phase 16 Usage, Phase 17 Event, Phase 18 WebSocket 기능은 선행 구현하지 않음
+
+---
+
+## Phase 15.5 검증
+
+- `__init__.py` 공개 API 정책 집중 회귀
+  - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_package_boundaries.py tests\unit\chunking tests\unit\test_agent.py tests\unit\test_tools.py tests\unit\parsers\test_pdf.py -q`
+  - Result: PASS (`52 passed`)
+- 변경 영향 집중 회귀
+  - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\adapters\test_openai_embedding_adapter.py tests\unit\test_context.py tests\unit\test_ingestion.py tests\unit\test_embedding.py tests\contract\test_health.py tests\unit\test_package_boundaries.py -q`
+  - Result: PASS (`61 passed`)
+- 전체 회귀 및 Branch Coverage
+  - Command: `.\.venv\Scripts\python.exe -m pytest --cov=app --cov-branch --cov-report=term-missing -q`
+  - Result: PASS (`311 passed, 17 skipped`, total coverage `87.74%`)
+- 저장소 전체 타입 검사
+  - Command: `.\.venv\Scripts\python.exe -m mypy app scripts`
+  - Result: PASS (`Success: no issues found in 116 source files`)
+- Package import graph
+  - Result: PASS (`FILE_LEVEL_CYCLES=0`, Service의 Agent/API/Composition/Adapter 의존 없음,
+    내부 패키지 단위 import와 `__init__.py` re-export 없음)
+- Command: `.\.venv\Scripts\python.exe -m ruff check .`
+  - Result: PASS
+- Command: `.\.venv\Scripts\python.exe -m compileall -q app scripts tests`
+  - Result: PASS
+- Command: `.\.venv\Scripts\python.exe -m pip check`
+  - Result: PASS (`No broken requirements found`)
+- Command: `git diff --check`
+  - Result: PASS
+
+---
+
+## Phase 15.5 미검증 항목
+
+- 실제 Credential/Infrastructure가 필요한 기존 조건부 Integration/E2E 17개는 기본 전체 회귀에서 skip.
+- 패키지 정비는 기능 동작을 변경하지 않으므로 Phase 15에서 통과한 실제 Gemini Agent 분기 및
+  Qdrant/MinIO/Provider E2E를 재호출하지 않음.
+
+---
+
+## Phase 15.5 변경 범위
+
+- `app/agent/`, `app/composition/`, `app/api/`, `app/services/`, `app/adapters/` 구조 정비
+- 전체 Application/Test/Script import 경로 동기화
+- `tests/unit/test_package_boundaries.py`에 계층 경계와 `__init__.py` 공개 API 정책 검사 추가
+- `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `docs/FILE_STRUCTURE.md`, `docs/TESTING.md`,
+  `docs/PROGRESS.md` 동기화
+
+---
+
+## Phase 15.5 다음 작업
+
+- Phase 15 기능과 구조 정비가 모두 검증되어 Phase 16 Usage Aggregation 진행 가능.
+- Phase 16 디렉터리와 모델은 Phase 16 작업에서만 추가한다.
+
+---
+
+## Phase 15 구현 기록
 
 - Phase 14 사전 재검증: Agent 없이 세 Tool 직접 호출 `15 passed`
 - LangChain Chat Model의 native `bind_tools`와 `AIMessage.tool_calls`를 사용하는 단일 Agent Loop 구현
@@ -82,7 +155,7 @@ Status: VERIFIED
 
 ---
 
-## 검증
+## Phase 15 검증 기록
 
 - Phase 14 사전 확인
   - Command: `.\.venv\Scripts\python.exe -m pytest tests\unit\test_tools.py -q`
@@ -113,13 +186,13 @@ Status: VERIFIED
 
 ---
 
-## 현재 Blocker
+## Phase 15 당시 Blocker
 
 - 없음.
 
 ---
 
-## 미검증 항목
+## Phase 15 미검증 항목
 
 - 실제 Spring Backend가 아직 없어 `list_documents` 실제 Internal API 계약 통합 테스트는 미실행.
 - Phase 15 Agent 분기는 실제 Gemini로 검증했지만 OpenAI/Ollama 실제 Tool Calling은 미실행.
@@ -130,7 +203,7 @@ Status: VERIFIED
 
 ---
 
-## 변경 파일
+## Phase 15 변경 파일
 
 - `.env.example`, `pyproject.toml`
 - `app/core/config.py`, `app/core/exceptions.py`
@@ -145,7 +218,7 @@ Status: VERIFIED
 
 ---
 
-## 다음 작업
+## Phase 15 다음 작업
 
 - Phase 15 필수 범위와 실제 Gemini Tool 선택 검증이 완료되어 Phase 16 진행 가능.
 - 다음 Phase에서만 여러 Agent LLM Call의 Usage Aggregation을 구현한다.

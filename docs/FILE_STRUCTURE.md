@@ -1,199 +1,192 @@
 # AI Server File Structure
 
-이 문서는 현재 구현된 파일의 책임과 의존 방향을 명시한다. 아직 구현하지 않은 Phase의 디렉터리는 선행해서 만들지 않는다.
+이 문서는 Phase 15.5까지 실제 구현된 파일의 책임과 의존 방향을 명시한다. 아직 구현하지 않은 Phase의
+디렉터리는 선행해서 만들지 않는다.
 
 ```text
 service-ai/
 ├─ app/
 │  ├─ api/
-│  │  ├─ documents.py           # 문서 처리/삭제/상태 Internal REST 계약과 HTTP 매핑
-│  │  ├─ health.py              # /health, /ready
-│  │  └─ router.py              # API router 조립
-│  ├─ adapters/
-│  │  ├─ agent_model.py         # LangChain OpenAI/Ollama/Gemini Tool Calling Chat Model
-│  │  ├─ backend.py             # Backend Internal API 문서 목록 Client 및 오류 변환
-│  │  ├─ qdrant.py              # Qdrant SDK Adapter 및 오류 변환
-│  │  ├─ minio.py               # MinIO SDK Adapter 및 오류 변환
-│  │  ├─ huggingface_embedding.py # Hugging Face Feature Extraction Adapter
-│  │  ├─ openai.py              # OpenAI Responses API Adapter 및 Usage/오류 변환
-│  │  ├─ openai_embedding.py    # OpenAI-compatible Embeddings Adapter 및 Vector/Usage 검증
-│  │  ├─ ollama.py              # Ollama Cloud API Adapter 및 Usage/오류 변환
-│  │  └─ gemini.py              # Google Gemini Interactions API Adapter
-│  ├─ core/
-│  │  ├─ config.py              # 환경설정과 Phase별 필수값 검증
-│  │  ├─ exceptions.py          # 외부 노출용 표준 오류 계약
-│  │  ├─ logging.py             # JSON logging
-│  │  └─ request_context.py      # request_id middleware/context
-│  ├─ chunking/
-│  │  └─ recursive.py            # Token 측정과 위치 경계 보존 Recursive Chunking
-│  ├─ ports/
-│  │  ├─ agent.py                # 실시간 Agent 실행 상태 Observer Protocol
-│  │  ├─ backend.py              # Backend 문서 목록 Source-of-Truth Protocol
-│  │  ├─ documents.py            # 문서 처리/관리 Application Protocol
-│  │  ├─ qdrant.py               # Runtime/Admin Qdrant Protocol과 경계 DTO
-│  │  ├─ storage.py              # Runtime/Admin Object Storage Protocol과 경계 DTO
-│  │  ├─ llm.py                  # LLMProvider Protocol
-│  │  └─ embedding.py            # EmbeddingProvider Protocol
-│  ├─ models/
-│  │  ├─ agent.py                # Agent Request/Result와 안전한 관찰 상태 모델
-│  │  ├─ document.py             # Parser/Chunk/DocumentStatistics 내부 모델
-│  │  ├─ context.py              # Conversation/RAG Context 예산 결과 내부 모델
-│  │  ├─ embedding.py            # Provider 중립 Embedding Result/Usage 모델
-│  │  ├─ ingestion.py            # 처리 Context/Result/표준 실패 사유 내부 모델
-│  │  ├─ llm.py                  # Provider 중립 LLM Request/Result/Usage 모델
-│  │  ├─ query_rewrite.py         # 대화 기반 검색 질의 재작성 내부 모델
-│  │  ├─ retrieval.py            # Retrieval Request와 Citation-ready Result 내부 모델
-│  │  ├─ rag.py                   # Pure RAG Request/Response와 Citation 내부 모델
-│  │  ├─ summary.py               # 문서 요약 요청/결과/전략 내부 모델
-│  │  └─ tools.py                 # 검증된 Tool 실행 Context와 Backend 문서 모델
-│  ├─ tools/
-│  │  ├─ contracts.py            # Name/Description/Input/Output/Execution 계약과 LangChain 변환
-│  │  ├─ execution.py            # 세 Tool의 Context-bound 기존 Service/Backend 호출
-│  │  └─ schemas.py              # LLM-visible Tool Input과 구조화 Output Schema
-│  ├─ prompts/
-│  │  ├─ agent.py                # No Tool/세 Tool 선택과 Tool Result 응답 규칙
-│  │  ├─ conversation_summary.py # 대화 압축 Prompt
-│  │  ├─ query_rewrite.py        # 검색 질의 재작성 Prompt
-│  │  ├─ rag.py                  # 전용 RAG Answer Prompt와 근거 부족 응답
-│  │  └─ summary.py              # 직접/계층형 문서 요약 Prompt
-│  ├─ parsers/
-│  │  ├─ base.py                 # 문서 Parser Protocol
-│  │  ├─ encoding.py             # TXT/MD 공통 Unicode Encoding 정책
-│  │  ├─ text.py                 # TXT 원문 Parser
-│  │  ├─ markdown.py             # MD 원문 및 Heading Section Parser
-│  │  ├─ pdf.py                  # PyMuPDF Page Text Parser
-│  │  └─ registry.py             # 확장자별 Parser 선택의 단일 진입점
+│  │  ├─ dependencies.py          # Container의 설정/Application Service 조회
+│  │  ├─ error_handlers.py        # Application Error의 FastAPI HTTP 매핑
+│  │  ├─ documents.py             # 문서 처리/삭제/상태 Internal REST 계약
+│  │  ├─ health.py                # /health, /ready
+│  │  ├─ router.py                # API Router 조립
+│  │  └─ schemas/
+│  │     ├─ documents.py          # Internal Document HTTP DTO
+│  │     └─ health.py             # Health/Readiness HTTP DTO
+│  │
+│  ├─ agent/
+│  │  ├─ service.py               # bounded LangChain Tool Calling Loop
+│  │  └─ tools/
+│  │     ├─ contracts.py          # Tool 계약과 LangChain StructuredTool 변환
+│  │     ├─ execution.py          # Context-bound Retrieval/Summary/Backend 호출
+│  │     └─ schemas.py            # LLM-visible Tool Input/Output
+│  │
+│  ├─ composition/
+│  │  ├─ container.py             # Service/Resource 생성 소유권과 lifecycle
+│  │  ├─ resources.py             # Qdrant/MinIO Resource 조립 및 종료
+│  │  └─ factories/
+│  │     ├─ agent.py              # Chat Model/Tool 기반 Agent 조립
+│  │     ├─ backend.py            # Backend Internal API Client 조립
+│  │     ├─ chunking.py           # TokenCounter/Chunker 조립
+│  │     ├─ document_management.py
+│  │     ├─ embedding.py          # Embedding Provider/Service 조립
+│  │     ├─ ingestion.py
+│  │     ├─ llm.py                # LLM Provider/Service 조립
+│  │     ├─ rag.py
+│  │     ├─ retrieval.py
+│  │     └─ summary.py
+│  │
 │  ├─ services/
-│  │  ├─ agent.py                # bounded LangChain Tool Calling Loop
-│  │  ├─ citations.py            # Retrieval metadata 기반 공통 Citation 생성/중복 제거
-│  │  ├─ context.py              # RAG Context 예산 조립
-│  │  ├─ conversation_compaction.py # 대화 압축과 최근 메시지 보존 정책
-│  │  ├─ document_management.py  # Scoped Vector 삭제, 상태 Registry/조회, 문서 작업 Lock
-│  │  ├─ ingestion.py            # 문서 Ingestion 오케스트레이션과 재처리 정책
-│  │  ├─ ingestion_preparation.py # 저장소 읽기/Parsing/Chunking 준비 단계
-│  │  ├─ ingestion_components.py  # Ingestion 측정/임베딩 Batch/Vector Point 조립
-│  │  ├─ query_rewrite.py         # 대화 기반 Retrieval Query 재작성
-│  │  ├─ retrieval.py            # Query Embedding과 scoped Dense Vector Retrieval
-│  │  ├─ rag_context.py          # Metadata/Text 분리 및 token 상한 Context Builder
-│  │  ├─ rag.py                  # Retrieval → Context → LLM → Citation 오케스트레이션
-│  │  ├─ summary.py              # scoped 원문 로딩과 문서 요약 진입점
-│  │  ├─ summary_execution.py    # 직접/계층형 요약 실행과 Token Budget 정책
-│  │  ├─ llm.py                  # Provider 중립 LLM Application Service
-│  │  ├─ embedding.py            # 단일/Batch Embedding 검증
-│  │  └─ vector_collection.py    # Qdrant Collection 존재/Dimension 정책
-│  ├─ factories/
-│  │  ├─ agent.py                # 설정/Chat Model/Context-bound Tool Agent 조립
-│  │  ├─ backend.py              # Backend Internal API Client 조립
-│  │  ├─ chunking.py             # 설정 기반 TokenCounter/Chunker 조립
-│  │  ├─ document_management.py  # Document Management Service 조립
-│  │  ├─ embedding.py            # Embedding Provider/Service 조립
-│  │  ├─ ingestion.py            # Ingestion Service 조립
-│  │  ├─ llm.py                  # LLM Provider/Service 조립
-│  │  ├─ rag.py                  # Pure RAG Service 조립
-│  │  ├─ retrieval.py            # Retrieval Service 조립
-│  │  └─ summary.py              # Document Summary Service 조립
-│  ├─ schemas/
-│  │  ├─ documents.py           # Internal Document 처리/삭제/상태 DTO
-│  │  └─ health.py              # Health/Readiness response schema
-│  ├─ infrastructure.py         # Qdrant/MinIO Resource 조립 및 종료
-│  ├─ composition.py            # Application Service 조립, 소유권, lifecycle 경계
-│  └─ main.py                   # FastAPI application factory와 lifespan 연결
-├─ scripts/
-│  ├─ manual_chunking.py         # 파일 상단 변수 기반 Parser → Chunking 실행
-│  ├─ manual_ingestion.py        # 파일 상단 변수 기반 Ingestion 실행
-│  ├─ manual_retrieval.py        # 파일 상단 변수 기반 scoped Retrieval 실행
-│  ├─ manual_rag.py              # 파일 상단 변수 기반 Pure RAG 실행
-│  ├─ manual_summary.py          # 파일 상단 변수 기반 Document Summary 실행
-│  └─ manual_llm.py              # 파일 상단 변수 기반 실제 LLM 호출
+│  │  ├─ documents/
+│  │  │  ├─ ingestion.py          # Ingestion 오케스트레이션과 재처리 정책
+│  │  │  ├─ preparation.py        # Storage Read/Parsing/Chunking
+│  │  │  ├─ vectorization.py      # 측정/Embedding Batch/Vector Point 조립
+│  │  │  ├─ management.py         # Scoped 삭제/상태 Registry/작업 Lock
+│  │  │  └─ collection.py         # Qdrant Collection/Dimension 정책
+│  │  ├─ retrieval/
+│  │  │  ├─ service.py            # Query Embedding과 scoped Dense Retrieval
+│  │  │  └─ query_rewrite.py      # 대화 기반 Retrieval Query 재작성
+│  │  ├─ rag/
+│  │  │  ├─ service.py            # Retrieval → Context → LLM → Citation
+│  │  │  ├─ context_builder.py    # Metadata/Text 분리와 Token 상한
+│  │  │  └─ citations.py          # Citation 생성/중복 제거
+│  │  ├─ summary/
+│  │  │  ├─ service.py            # Scoped 원문 로딩과 요약 진입점
+│  │  │  └─ execution.py          # Direct/Hierarchical 실행과 Budget 정책
+│  │  ├─ context/
+│  │  │  ├─ budget.py             # RAG/Conversation Token Budget 조립
+│  │  │  └─ compaction.py         # 대화 압축과 최근 Message 보존
+│  │  ├─ embedding.py             # 단일/Batch Embedding 검증
+│  │  └─ llm.py                   # Provider 중립 LLM Application Service
+│  │
+│  ├─ adapters/
+│  │  ├─ agent/langchain_models.py # LangChain OpenAI/Ollama/Gemini Chat Model
+│  │  ├─ backend/http.py           # Backend 문서 목록 HTTP Client
+│  │  ├─ embedding/
+│  │  │  ├─ huggingface.py
+│  │  │  └─ openai_compatible.py  # OpenAI/DeepInfra 호환 Embedding
+│  │  ├─ llm/
+│  │  │  ├─ openai.py
+│  │  │  ├─ ollama.py
+│  │  │  └─ gemini.py
+│  │  ├─ storage/minio.py
+│  │  └─ vector/qdrant.py
+│  │
+│  ├─ models/
+│  │  ├─ agent.py
+│  │  ├─ context.py
+│  │  ├─ document.py
+│  │  ├─ embedding.py
+│  │  ├─ ingestion.py
+│  │  ├─ llm.py
+│  │  ├─ query_rewrite.py
+│  │  ├─ rag.py
+│  │  ├─ retrieval.py
+│  │  ├─ summary.py
+│  │  └─ tools.py
+│  │
+│  ├─ ports/
+│  │  ├─ agent.py                 # 안전한 Agent 실행 상태 Observer
+│  │  ├─ backend.py               # Backend Source-of-Truth 문서 목록
+│  │  ├─ documents.py             # 문서 처리/관리 Application Protocol
+│  │  ├─ embedding.py
+│  │  ├─ llm.py
+│  │  ├─ qdrant.py                # Runtime/Admin Qdrant Protocol/DTO
+│  │  └─ storage.py               # Runtime/Admin Object Storage Protocol/DTO
+│  │
+│  ├─ parsers/                    # PDF/TXT/MD Parser와 Registry
+│  ├─ chunking/                   # TokenCounter와 Recursive Chunking
+│  ├─ prompts/                    # Agent/RAG/Summary/Rewrite/Context Prompt
+│  ├─ core/
+│  │  ├─ config.py
+│  │  ├─ exceptions.py           # Transport Framework 독립 Application 오류
+│  │  ├─ logging.py
+│  │  └─ request_context.py
+│  └─ main.py                     # FastAPI Factory와 lifespan 연결
+│
+├─ scripts/                       # 비용/Infrastructure 수동 검증 진입점
 ├─ tests/
-│  ├─ fixtures/documents/        # 비민감 TXT/MD/PDF Parser Fixture
-│  ├─ unit/                      # 단일 클래스/함수와 Adapter 오류 변환
-│  │  ├─ test_agent.py           # Agent 네 분기/Scope/Error/Limit/관찰 상태 검증
-│  │  └─ test_tools.py           # Agent 없는 세 Tool 직접 호출과 Mock Backend 검증
-│  ├─ component/                 # 여러 Service를 Fake Port로 조립한 결정적 흐름
-│  ├─ contract/                  # FastAPI HTTP/오류/헤더 계약
-│  ├─ smoke/                     # 수동 스크립트 import 및 직접 실행 가능성
-│  ├─ integration/qdrant/       # 실제 Qdrant 및 Embedding Dimension Integration Test
-│  ├─ integration/embedding/    # 실제 Embedding Provider Integration Test
-│  ├─ integration/ingestion/    # 실제 MinIO/Qdrant/Embedding Pipeline Test
-│  ├─ integration/retrieval/    # 실제 Qdrant 및 선택형 Embedding Retrieval Test
-│  ├─ integration/agent/        # 조건부 실제 LLM Tool 선택 Integration Test
-│  ├─ integration/minio/        # 실제 MinIO Integration Test
-│  ├─ conftest.py               # 공통 설정과 Adapter fake 주입
-│  └─ fakes.py                  # SDK에 의존하지 않는 test doubles
-├─ docs/                        # 범위/설계/계약/테스트/진행 문서
-├─ compose.yaml                 # 로컬 Qdrant/MinIO와 persistent volumes
-├─ .env.example                 # Secret을 제외한 환경설정 예시
-└─ pyproject.toml               # Python dependency/test/lint configuration
+│  ├─ fixtures/documents/
+│  ├─ unit/
+│  │  ├─ adapters/
+│  │  ├─ chunking/
+│  │  ├─ parsers/
+│  │  └─ test_package_boundaries.py # 계층/Transport 독립성 회귀
+│  ├─ component/
+│  ├─ contract/
+│  ├─ integration/
+│  └─ smoke/
+├─ docs/
+├─ compose.yaml
+├─ .env.example
+└─ pyproject.toml
 ```
 
 ## Dependency Direction
 
 ```text
-Document File / ParserInput
-    ↓
-ParserRegistry / DocumentParser
-    ↓
-NormalizedDocument / ContentUnit
-
 FastAPI API
     ↓
-Document Application Port
+Document Application Port / Agent
     ↓
-Application Service → Domain Model
+Application Service → Provider-neutral Model
     ↓
-QdrantRepository / ObjectStorage / LLMProvider / EmbeddingProvider (Port)
+QdrantRepository / ObjectStorage / LLMProvider / EmbeddingProvider
     ↓
-QdrantAdapter / MinIOStorageAdapter / LLM Adapters / Embedding Adapters
+Concrete Adapter
     ↓
-External SDK / Qdrant / MinIO
+External SDK / Qdrant / MinIO / Provider API
 ```
 
 ```text
 LangChain Chat Model + Agent Prompt
     ↓ AIMessage.tool_calls
-LangChain Tool
+Agent Tool
     ↓
-ToolExecutionContext + 기존 Retrieval/Summary Service 또는 BackendDocumentsClient
-    ↓
-Qdrant/MinIO/LLM 또는 Backend Internal API
+ToolExecutionContext + Retrieval/Summary Service 또는 BackendDocumentsClient
     ↓ ToolMessage
 LangChain Chat Model → Final Answer
 ```
 
-- API와 향후 Application Service/Tool은 외부 SDK를 직접 호출하지 않는다.
-- `main.py`는 HTTP/lifespan만 연결하고 실제 생성·소유권·종료 순서는 `ApplicationContainer`가 담당한다.
-- 외부에서 주입된 Resource/Service는 호출자 소유이며 Container가 닫지 않는다.
+## Structure Rules
+
+- `main.py`는 FastAPI/lifespan만 연결하고 생성·소유권·종료는 `composition/`이 담당한다.
+- `composition/`만 Concrete Adapter와 Service 구현을 함께 알 수 있다.
+- Factory는 전체 Infrastructure 묶음이 아니라 실제 필요한 Port를 입력으로 받는다.
+- API는 `dependencies.py`를 통해 Container의 Service를 조회한다.
+- 내부 Application/Test/Script import는 심볼을 정의한 구체 모듈 경로를 사용한다.
+- `__init__.py`는 기본적으로 패키지 설명만 유지한다. 외부에서 사용하는 안정적인 Python API가 명시된
+  경우에만 re-export를 허용하며, 현재는 해당 공개 API가 없다.
+- `core/exceptions.py`는 FastAPI/Starlette에 의존하지 않고 HTTP 매핑은 `api/error_handlers.py`가 담당한다.
+- Agent는 Retrieval/Summary보다 상위 오케스트레이션이며 `agent → services → ports → adapters` 방향을 유지한다.
+- Service는 `agent`, `api`, `composition`, Concrete Adapter에 의존하지 않는다.
+- Tool은 기능을 중복 구현하지 않고 기존 Service 또는 Backend Port를 호출한다.
 - Provider 중립 Request/Result/Usage는 `models/`에 두고 `ports/`는 Protocol에 집중한다.
-- Runtime Port에는 앱 기능만, Admin Port에는 Collection/Bucket 생성·삭제 같은 운영/테스트 기능만 둔다.
+- 외부에서 주입된 Resource/Service는 호출자 소유이며 Container가 닫지 않는다.
+
+## Data and Security Rules
+
 - MinIO는 원본 문서 Object만 저장한다.
 - Qdrant는 Chunk/Vector/Retrieval Metadata만 저장하며 원본 파일 저장소로 사용하지 않는다.
-- 기본 Embedding은 DeepInfra `Qwen/Qwen3-Embedding-8B`이고 Qdrant Vector Dimension은 4096다.
-- Provider Credential은 선택한 Provider 전용 환경값으로만 주입하며 저장소나 로그에 기록하지 않는다.
-- 기존 Qdrant Collection의 dimension이 다르면 자동 삭제/재생성하지 않고 명시적인 오류를 반환한다.
-- LLM Service와 상위 Application 계층은 OpenAI SDK 타입을 받거나 반환하지 않는다.
-- Embedding Service와 상위 Application 계층은 OpenAI SDK 타입을 받거나 반환하지 않는다.
-- Parser 선택은 `ParserRegistry`에만 두고 이후 단계에는 `NormalizedDocument`를 전달한다.
-- `CHUNK_SIZE`와 `CHUNK_OVERLAP`은 tokenizer token 단위이며 문자 수가 아니다.
-- PDF Page와 Markdown Section은 Citation 경계다. Chunk 및 Overlap은 이 경계를 넘지 않는다.
-- 빈 문서는 Token/Chunk 수를 0으로 유지하며 빈 Chunk를 만들지 않는다.
-- Ingestion에서는 파싱 결과가 비어 있으면 `DOCUMENT_EMPTY`로 실패시키고 Vector를 만들지 않는다.
-- 모든 Embedding Batch 완료 전에는 Qdrant를 변경하지 않는다.
-- 같은 `document_id` 재처리는 기존 Point를 교체하며 저장 실패 시 잔여 신규 Point 정리를 시도한다.
-- Qdrant Point ID는 `user_id + document_id + chunk_index`를 길이 구분한 UUID5로 생성해 사용자 간 ID 충돌을 방지한다.
-- Ingestion 교체와 삭제는 같은 `user_id + document_id` 작업 Lock을 공유한다.
-- Qdrant 문서 교체·삭제·상태 조회는 `user_id + document_id` Filter를 모두 사용한다.
 - Qdrant Retrieval은 문서 범위 유무와 무관하게 `user_id` Filter를 항상 사용한다.
-- Tool Input Schema는 `user_id`를 노출하지 않고 검증된 `ToolExecutionContext`에서 Scope를 주입한다.
-- Agent는 질문 문자열을 Python Keyword로 분기하지 않고 LangChain native Tool Calling 결과만 실행한다.
-- `MAX_AGENT_STEPS`와 `MAX_TOOL_CALLS`는 Model/Tool 호출 전에 각각 강제한다.
-- Agent 관찰 상태에는 Prompt, Chain-of-Thought, Tool 원문, Stack Trace를 포함하지 않는다.
+- 문서 교체·삭제·상태 조회는 `user_id + document_id` Filter를 모두 사용한다.
+- Tool Input Schema는 `user_id`를 노출하지 않고 `ToolExecutionContext`에서 Scope를 주입한다.
 - `list_documents`는 Qdrant가 아니라 Backend Internal API를 Source of Truth로 사용한다.
-- 문서 범위가 있으면 단일 `document_id` 또는 복수 `document_ids` Filter를 추가한다.
-- Retrieval Result는 Phase 10 Citation에 필요한 Chunk 본문과 위치 Metadata를 보존한다.
-- RAG Prompt는 `app/prompts/rag.py`에서 단일 관리하며 Service에 Prompt 문자열을 분산하지 않는다.
-- RAG Context는 `MAX_CONTEXT_TOKENS` 상한 내에서 Metadata와 본문을 분리해 구성한다.
-- Citation은 Context에 포함된 실제 Retrieval Result에서만 생성하고 완전 중복은 검색 순서를 유지해 제거한다.
+- Prompt, Chain-of-Thought, Tool 원문, Stack Trace, Secret을 Agent 관찰 상태에 포함하지 않는다.
+- LLM/Embedding Service와 상위 계층은 Provider SDK 타입을 받거나 반환하지 않는다.
+- Provider Credential은 환경 설정으로만 주입하며 저장소나 로그에 기록하지 않는다.
+
+## Document and RAG Rules
+
+- Parser 선택은 `ParserRegistry`가 담당하고 이후 단계에는 `NormalizedDocument`를 전달한다.
+- Chunk와 Overlap은 PDF Page/Markdown Section Citation 경계를 넘지 않는다.
+- 빈 문서는 빈 Chunk를 만들지 않으며 Ingestion에서는 `DOCUMENT_EMPTY`로 실패시킨다.
+- 모든 Embedding Batch가 완료되기 전에는 Qdrant를 변경하지 않는다.
+- 같은 문서의 Ingestion 교체와 삭제는 동일한 작업 Lock을 사용한다.
+- 기존 Qdrant Collection의 Dimension이 다르면 자동 삭제/재생성하지 않는다.
+- RAG Context는 Token 상한 내에서 Metadata와 본문을 분리해 구성한다.
+- Citation은 실제 Retrieval Result에서만 생성하고 검색 순서를 유지해 중복 제거한다.
 - 근거가 없으면 LLM을 호출하지 않고 근거 부족 응답과 빈 Citation을 반환한다.
-- 처리 중/최근 실패 상태는 process-local Registry에만 두고 완료 상태는 Qdrant payload에서 복원한다.
-- 문서 삭제는 Qdrant Vector만 대상으로 하며 Backend Metadata와 MinIO 원본을 변경하지 않는다.
+- `MAX_AGENT_STEPS`와 `MAX_TOOL_CALLS`는 Model/Tool 호출 전에 강제한다.

@@ -2,7 +2,7 @@ import asyncio
 import json
 from dataclasses import asdict
 
-from app.composition import create_application_container
+from app.composition.container import create_application_container
 from app.core.config import Settings
 from app.models.ingestion import DocumentProcessingContext
 

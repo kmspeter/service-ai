@@ -4,7 +4,7 @@ import httpx
 import pytest
 from huggingface_hub.errors import HfHubHTTPError, InferenceTimeoutError
 
-from app.adapters.huggingface_embedding import HuggingFaceEmbeddingAdapter
+from app.adapters.embedding.huggingface import HuggingFaceEmbeddingAdapter
 from app.core.exceptions import (
     EmbeddingAuthenticationError,
     EmbeddingAuthorizationError,
@@ -145,7 +145,7 @@ def test_official_client_is_configured_for_hf_inference(
         return client
 
     monkeypatch.setattr(
-        "app.adapters.huggingface_embedding.AsyncInferenceClient", build_client
+        "app.adapters.embedding.huggingface.AsyncInferenceClient", build_client
     )
 
     HuggingFaceEmbeddingAdapter(

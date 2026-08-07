@@ -1,8 +1,8 @@
 import asyncio
 
-from app.composition import ApplicationContainer, create_application_container
+from app.composition.container import ApplicationContainer, create_application_container
+from app.composition.resources import InfrastructureResources
 from app.core.config import Settings
-from app.infrastructure import InfrastructureResources
 from app.models.ingestion import (
     DocumentDeleteResult,
     DocumentOperationContext,

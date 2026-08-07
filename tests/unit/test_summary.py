@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from app.chunking import RecursiveDocumentChunker, TokenCounter
+from app.chunking.recursive import RecursiveDocumentChunker, TokenCounter
 from app.core.exceptions import (
     LLMConnectionError,
     ResourceNotFoundError,
@@ -11,7 +11,7 @@ from app.core.exceptions import (
 from app.models.llm import LLMRequest, LLMResult
 from app.models.summary import SummaryRequest, SummaryStrategy
 from app.parsers.registry import create_default_parser_registry
-from app.services.summary import DocumentSummaryService, SummaryStrategySelector
+from app.services.summary.service import DocumentSummaryService, SummaryStrategySelector
 from tests.fakes import RecordingLLM
 
 

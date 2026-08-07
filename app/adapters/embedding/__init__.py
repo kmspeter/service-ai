@@ -1,0 +1,1 @@
+"""External embedding provider adapters."""

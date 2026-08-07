@@ -4,12 +4,12 @@ from uuid import uuid4
 
 import pytest
 
-from app.adapters.qdrant import QdrantAdapter
+from app.adapters.vector.qdrant import QdrantAdapter
 from app.models.embedding import EmbeddingBatchResult, EmbeddingUsage
 from app.models.retrieval import RetrievalRequest
 from app.ports.qdrant import VectorPoint
 from app.services.embedding import EmbeddingService
-from app.services.retrieval import RetrievalService
+from app.services.retrieval.service import RetrievalService
 
 pytestmark = [
     pytest.mark.infrastructure,

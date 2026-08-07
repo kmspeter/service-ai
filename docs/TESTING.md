@@ -37,7 +37,8 @@ tests/
 ├─ unit/
 │  ├─ parsers/
 │  ├─ chunking/
-│  └─ adapters/
+│  ├─ adapters/
+│  └─ test_package_boundaries.py # 계층/Transport 독립성
 │
 ├─ component/                    # Fake Port로 여러 Service를 조립한 흐름
 ├─ contract/                     # FastAPI HTTP/DTO/오류/header 계약
@@ -970,6 +971,27 @@ $env:RUN_AGENT_INTEGRATION_TESTS="1"
 ```
 
 실제 Provider 테스트는 비용/외부 Credential이 필요하므로 기본 전체 회귀에서는 skip한다.
+
+---
+
+# 20.5. Package Boundary Test
+
+Phase 15.5 구조 정비 이후 다음 의존 방향을 자동 검증한다.
+
+```text
+agent → services → ports → adapters
+```
+
+검증:
+
+- `services/`가 `agent`, `api`, `composition`, Concrete Adapter를 import하지 않음
+- `core/exceptions.py`가 FastAPI/Starlette에 의존하지 않음
+- 외부 안정 API로 선언되지 않은 `app/**/__init__.py`가 import 또는 `__all__`로 내부 심볼을 재수출하지 않음
+- Application/Test/Script가 `app` 패키지 대신 심볼을 정의한 구체 모듈에서 import함
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests\unit\test_package_boundaries.py -q
+```
 
 ---
 

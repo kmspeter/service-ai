@@ -10,14 +10,14 @@ from fastapi.testclient import TestClient
 from minio import Minio
 from qdrant_client import QdrantClient, models
 
+from app.composition.factories.chunking import create_document_chunker
+from app.composition.resources import create_infrastructure_resources
 from app.core.config import Settings
-from app.factories.chunking import create_document_chunker
-from app.infrastructure import create_infrastructure_resources
 from app.main import create_app
 from app.models.embedding import EmbeddingBatchResult, EmbeddingUsage
 from app.parsers.registry import create_default_parser_registry
+from app.services.documents.ingestion import DocumentIngestionService
 from app.services.embedding import EmbeddingService
-from app.services.ingestion import DocumentIngestionService
 
 FIXTURES = Path(__file__).parents[2] / "fixtures" / "documents"
 

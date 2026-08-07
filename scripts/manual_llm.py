@@ -2,8 +2,8 @@ import asyncio
 import json
 from dataclasses import asdict
 
+from app.composition.factories.llm import create_llm_service
 from app.core.config import get_settings
-from app.factories.llm import create_llm_service
 from app.models.llm import LLMRequest
 
 # Manual configuration: edit this value and provider settings in .env, then run.

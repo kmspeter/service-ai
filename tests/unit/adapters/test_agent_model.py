@@ -5,7 +5,7 @@ from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
-from app.adapters.agent_model import create_agent_chat_model
+from app.adapters.agent.langchain_models import create_agent_chat_model
 from app.core.config import Settings
 
 

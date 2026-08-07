@@ -3,6 +3,16 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Query, Request, Response, status
 from pydantic import AfterValidator
 
+from app.api.dependencies import (
+    DocumentIngestionDependency,
+    DocumentManagementDependency,
+)
+from app.api.schemas.documents import (
+    DocumentDeleteResponse,
+    DocumentProcessingRequest,
+    DocumentProcessingResponse,
+    DocumentStatusResponse,
+)
 from app.core.exceptions import DocumentStatusUnavailableError, RequestIdMismatchError
 from app.core.request_context import bind_request_id, validate_request_id
 from app.models.ingestion import (
@@ -14,13 +24,6 @@ from app.models.ingestion import (
     DocumentProcessingContext,
     DocumentProcessingResult,
     DocumentProcessingStatus,
-)
-from app.ports.documents import DocumentIngestionPort, DocumentManagementPort
-from app.schemas.documents import (
-    DocumentDeleteResponse,
-    DocumentProcessingRequest,
-    DocumentProcessingResponse,
-    DocumentStatusResponse,
 )
 
 router = APIRouter(prefix="/internal", tags=["internal-documents"])
@@ -58,9 +61,9 @@ async def process_document(
     payload: DocumentProcessingRequest,
     request: Request,
     response: Response,
+    service: DocumentIngestionDependency,
 ) -> DocumentProcessingResponse:
     _bind_contract_request_id(request, payload.request_id)
-    service: DocumentIngestionPort | None = request.app.state.container.document_ingestion
     context = DocumentProcessingContext(**payload.model_dump())
     if service is None:
         result = DocumentProcessingResult(
@@ -84,9 +87,9 @@ async def delete_document(
     response: Response,
     request_id: _RequestId,
     user_id: _ScopedIdentifier,
+    service: DocumentManagementDependency,
 ) -> DocumentDeleteResponse:
     _bind_contract_request_id(request, request_id)
-    service: DocumentManagementPort | None = request.app.state.container.document_management
     context = DocumentOperationContext(
         request_id=request_id,
         user_id=user_id,
@@ -116,9 +119,9 @@ async def get_document_status(
     request: Request,
     request_id: _RequestId,
     user_id: _ScopedIdentifier,
+    service: DocumentManagementDependency,
 ) -> DocumentStatusResponse:
     _bind_contract_request_id(request, request_id)
-    service: DocumentManagementPort | None = request.app.state.container.document_management
     if service is None:
         raise DocumentStatusUnavailableError
     result = await service.get_status(

@@ -3,7 +3,7 @@ import asyncio
 import httpx
 import pytest
 
-from app.adapters.ollama import OllamaLLMAdapter
+from app.adapters.llm.ollama import OllamaLLMAdapter
 from app.core.exceptions import (
     LLMAuthenticationError,
     LLMAuthorizationError,
@@ -198,7 +198,7 @@ def test_ollama_cloud_client_uses_bearer_auth(monkeypatch: pytest.MonkeyPatch) -
         captured.update(parameters)
         return client
 
-    monkeypatch.setattr("app.adapters.ollama.httpx.AsyncClient", build_client)
+    monkeypatch.setattr("app.adapters.llm.ollama.httpx.AsyncClient", build_client)
 
     OllamaLLMAdapter(api_key="test-secret", model="glm-5.2", timeout_seconds=12)
 

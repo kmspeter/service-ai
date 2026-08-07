@@ -4,9 +4,9 @@ from pathlib import Path
 import pytest
 import tiktoken
 
-from app.chunking import RecursiveDocumentChunker, TokenCounter
+from app.chunking.recursive import RecursiveDocumentChunker, TokenCounter
+from app.composition.factories.chunking import create_document_chunker
 from app.core.config import Settings
-from app.factories.chunking import create_document_chunker
 from app.models.document import ContentUnit, NormalizedDocument, ParserInput
 from app.parsers.markdown import MarkdownParser
 from app.parsers.pdf import PdfParser

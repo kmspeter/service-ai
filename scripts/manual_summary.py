@@ -2,9 +2,9 @@ import asyncio
 import json
 from dataclasses import asdict
 
+from app.composition.factories.summary import create_document_summary_service
+from app.composition.resources import create_infrastructure_resources
 from app.core.config import Settings
-from app.factories.summary import create_document_summary_service
-from app.infrastructure import create_infrastructure_resources
 from app.models.summary import SummaryRequest
 
 # Manual configuration: edit these values and provider settings in .env, then run.
@@ -16,7 +16,11 @@ DOCUMENT_ID = "manual-document"
 async def _run() -> None:
     settings = Settings()
     infrastructure = create_infrastructure_resources(settings)
-    service = create_document_summary_service(settings, infrastructure)
+    service = create_document_summary_service(
+        settings,
+        infrastructure.qdrant,
+        infrastructure.storage,
+    )
     try:
         result = await service.summarize(
             SummaryRequest(

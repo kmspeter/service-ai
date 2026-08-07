@@ -5,7 +5,7 @@ import httpx
 import pytest
 from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 
-from app.adapters.qdrant import QdrantAdapter
+from app.adapters.vector.qdrant import QdrantAdapter
 from app.core.exceptions import (
     ExternalServiceAuthenticationError,
     ExternalServiceConnectionError,

@@ -7,7 +7,7 @@ from app.models.embedding import EmbeddingBatchResult, EmbeddingUsage
 from app.models.retrieval import RetrievalRequest
 from app.ports.qdrant import VectorSearchHit
 from app.services.embedding import EmbeddingService
-from app.services.retrieval import RetrievalService
+from app.services.retrieval.service import RetrievalService
 
 
 class QueryEmbeddingProvider:

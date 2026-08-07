@@ -4,9 +4,9 @@ from uuid import uuid4
 
 import pytest
 
+from app.composition.factories.summary import create_document_summary_service
+from app.composition.resources import create_infrastructure_resources
 from app.core.config import Settings
-from app.factories.summary import create_document_summary_service
-from app.infrastructure import create_infrastructure_resources
 from app.models.summary import SummaryRequest, SummaryStrategy
 from app.ports.qdrant import VectorPoint
 
@@ -99,7 +99,11 @@ def test_real_minio_qdrant_and_llm_direct_and_hierarchical_summary() -> None:
                 filename="hierarchical.txt",
             )
 
-            summary = create_document_summary_service(settings, infrastructure)
+            summary = create_document_summary_service(
+                settings,
+                infrastructure.qdrant,
+                infrastructure.storage,
+            )
             direct = await summary.summarize(
                 SummaryRequest(
                     request_id="summary-direct-integration",

@@ -8,7 +8,7 @@ from app.models.query_rewrite import (
     QueryRewriteRequest,
     QueryRewriteStatus,
 )
-from app.services.query_rewrite import QueryRewriteService
+from app.services.retrieval.query_rewrite import QueryRewriteService
 from tests.fakes import RecordingLLM
 
 

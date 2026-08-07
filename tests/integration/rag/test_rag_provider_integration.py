@@ -4,13 +4,13 @@ from uuid import uuid4
 
 import pytest
 
-from app.adapters.qdrant import QdrantAdapter
+from app.adapters.vector.qdrant import QdrantAdapter
+from app.composition.factories.embedding import create_embedding_service
+from app.composition.factories.rag import create_rag_service
 from app.core.config import Settings
-from app.factories.embedding import create_embedding_service
-from app.factories.rag import create_rag_service
 from app.models.rag import RAGRequest
 from app.ports.qdrant import VectorPoint
-from app.services.vector_collection import ensure_vector_collection
+from app.services.documents.collection import ensure_vector_collection
 
 pytestmark = [
     pytest.mark.infrastructure,

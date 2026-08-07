@@ -2,9 +2,9 @@ import asyncio
 
 import pytest
 
+from app.composition.factories.llm import create_llm_service
 from app.core.config import Settings
 from app.core.exceptions import UnknownLLMProviderError
-from app.factories.llm import create_llm_service
 from app.models.llm import LLMRequest, LLMResult, LLMUsage
 from app.services.llm import LLMService
 

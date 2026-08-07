@@ -12,7 +12,7 @@ from app.models.ingestion import (
     DocumentProcessingResult,
     DocumentProcessingStatus,
 )
-from app.services.document_management import (
+from app.services.documents.management import (
     DocumentManagementService,
     DocumentStatusRegistry,
 )

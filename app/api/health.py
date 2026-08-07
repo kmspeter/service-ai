@@ -1,22 +1,18 @@
 import asyncio
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, Response, status
 
-from app.composition import ApplicationContainer
-from app.core.config import Settings, SettingsConfigurationError
+from app.api.dependencies import ApplicationContainerDependency, SettingsDependency
+from app.api.schemas.health import (
+    HealthResponse,
+    ReadinessCheckStatus,
+    ReadinessResponse,
+)
+from app.composition.resources import InfrastructureResources
+from app.core.config import SettingsConfigurationError
 from app.core.exceptions import ResourceNotFoundError
-from app.infrastructure import InfrastructureResources
-from app.schemas.health import HealthResponse, ReadinessResponse
 
 router = APIRouter(tags=["health"])
-
-
-def _settings_from(request: Request) -> Settings:
-    return request.app.state.settings
-
-
-def _container_from(request: Request) -> ApplicationContainer:
-    return request.app.state.container
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -25,11 +21,13 @@ async def health() -> HealthResponse:
 
 
 @router.get("/ready", response_model=ReadinessResponse)
-async def readiness(request: Request, response: Response) -> ReadinessResponse:
-    settings = _settings_from(request)
-    container = _container_from(request)
+async def readiness(
+    response: Response,
+    settings: SettingsDependency,
+    container: ApplicationContainerDependency,
+) -> ReadinessResponse:
     infrastructure = container.infrastructure
-    checks: dict[str, str] = {"application": "ok"}
+    checks: dict[str, ReadinessCheckStatus] = {"application": "ok"}
 
     try:
         settings.validate_infrastructure_settings()

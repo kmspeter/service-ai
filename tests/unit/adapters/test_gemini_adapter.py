@@ -3,7 +3,7 @@ import asyncio
 import httpx
 import pytest
 
-from app.adapters.gemini import GeminiLLMAdapter
+from app.adapters.llm.gemini import GeminiLLMAdapter
 from app.core.exceptions import (
     LLMAuthenticationError,
     LLMAuthorizationError,
@@ -233,7 +233,7 @@ def test_gemini_client_uses_api_key_header(monkeypatch: pytest.MonkeyPatch) -> N
         captured.update(parameters)
         return client
 
-    monkeypatch.setattr("app.adapters.gemini.httpx.AsyncClient", build_client)
+    monkeypatch.setattr("app.adapters.llm.gemini.httpx.AsyncClient", build_client)
 
     GeminiLLMAdapter(api_key="test-secret", model="gemini-3.6-flash", timeout_seconds=12)
 

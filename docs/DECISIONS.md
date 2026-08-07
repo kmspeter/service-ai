@@ -493,3 +493,32 @@ Query Rewrite와 Conversation Summary는 Provider/검증 등 표준 `Application
 
 LLM/Embedding Request, Result, Usage는 `app/models/`에 둔다. `app/ports/`는 Protocol과 외부 경계에
 필요한 최소 DTO만 가지며, Runtime 기능과 Collection/Bucket 관리 기능은 별도 Protocol로 분리한다.
+
+---
+
+## D038 — Agent는 Application Service보다 상위 오케스트레이션 패키지다
+
+**Decision**
+
+Agent와 Context-bound Tool은 `app/agent/`에 두고 기존 Retrieval/Summary Service와 Backend Port를
+호출한다. Application Service는 Agent/Tool에 의존하지 않으며 다음 방향을 유지한다.
+
+```text
+agent → services → ports → adapters
+```
+
+Service는 기능별 하위 패키지로 묶고, Concrete Adapter는 Provider 종류별 하위 패키지에 둔다.
+Resource 생성과 Factory는 `app/composition/`에 모으며 Factory는 전체 Resource 묶음 대신 필요한
+정확한 Port를 입력으로 받는다. HTTP Schema, 의존성 조회, 오류 Handler는 `app/api/`가 소유하고
+`core/exceptions.py`는 Transport Framework에 의존하지 않는다.
+
+---
+
+## D039 — 패키지 초기화 파일은 암묵적 공개 API를 만들지 않는다
+
+**Decision**
+
+Application, Test, Script 내부 import는 심볼을 정의한 구체 모듈 경로를 사용한다. `app/**/__init__.py`는
+기본적으로 패키지 설명만 가지며 내부 구현을 재수출하지 않는다. 향후 외부 소비자가 사용하는 안정적인
+Python API가 명시적으로 정의된 경우에만 제한적으로 re-export와 `__all__`을 추가하고 구조 테스트의 허용
+목록에 등록한다. 현재 저장소에는 그러한 외부 Python API가 없다.

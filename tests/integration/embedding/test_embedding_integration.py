@@ -3,8 +3,8 @@ import os
 
 import pytest
 
+from app.composition.factories.embedding import create_embedding_service
 from app.core.config import Settings
-from app.factories.embedding import create_embedding_service
 
 pytestmark = [
     pytest.mark.embedding,

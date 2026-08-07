@@ -1,16 +1,16 @@
 import asyncio
 
-from app.chunking import TokenCounter
+from app.chunking.recursive import TokenCounter
 from app.models.embedding import EmbeddingBatchResult, EmbeddingUsage
 from app.models.llm import LLMRequest, LLMResult, LLMUsage
 from app.models.query_rewrite import QueryRewriteRequest, QueryRewriteResult, QueryRewriteStatus
 from app.models.rag import RAGRequest
 from app.ports.qdrant import VectorSearchHit
-from app.services.context import ContextBudgetManager
+from app.services.context.budget import ContextBudgetManager
 from app.services.embedding import EmbeddingService
-from app.services.rag import RAGService
-from app.services.rag_context import RAGContextBuilder
-from app.services.retrieval import RetrievalService
+from app.services.rag.context_builder import RAGContextBuilder
+from app.services.rag.service import RAGService
+from app.services.retrieval.service import RetrievalService
 
 
 class FixedEmbeddingProvider:

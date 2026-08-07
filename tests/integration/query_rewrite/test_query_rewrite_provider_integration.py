@@ -3,14 +3,14 @@ import os
 
 import pytest
 
+from app.composition.factories.llm import create_llm_service
 from app.core.config import Settings
-from app.factories.llm import create_llm_service
 from app.models.query_rewrite import (
     ConversationMessage,
     QueryRewriteRequest,
     QueryRewriteStatus,
 )
-from app.services.query_rewrite import QueryRewriteService
+from app.services.retrieval.query_rewrite import QueryRewriteService
 
 pytestmark = [
     pytest.mark.llm,

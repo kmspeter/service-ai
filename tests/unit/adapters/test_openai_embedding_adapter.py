@@ -5,7 +5,7 @@ import httpx
 import openai
 import pytest
 
-from app.adapters.openai_embedding import OpenAIEmbeddingAdapter
+from app.adapters.embedding.openai_compatible import OpenAIEmbeddingAdapter
 from app.core.exceptions import (
     EmbeddingAuthenticationError,
     EmbeddingAuthorizationError,
@@ -177,7 +177,7 @@ def test_openai_sdk_retry_is_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
         captured.update(parameters)
         return client
 
-    monkeypatch.setattr("app.adapters.openai_embedding.AsyncOpenAI", build_client)
+    monkeypatch.setattr("app.adapters.embedding.openai_compatible.AsyncOpenAI", build_client)
 
     OpenAIEmbeddingAdapter(
         api_key="test-secret",
@@ -199,7 +199,7 @@ def test_openai_compatible_base_url_is_forwarded(
         captured.update(parameters)
         return client
 
-    monkeypatch.setattr("app.adapters.openai_embedding.AsyncOpenAI", build_client)
+    monkeypatch.setattr("app.adapters.embedding.openai_compatible.AsyncOpenAI", build_client)
 
     adapter = OpenAIEmbeddingAdapter(
         api_key="test-secret",

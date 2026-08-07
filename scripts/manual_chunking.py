@@ -2,8 +2,8 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
+from app.composition.factories.chunking import create_document_chunker
 from app.core.config import get_settings
-from app.factories.chunking import create_document_chunker
 from app.models.document import ParserInput
 from app.parsers.registry import create_default_parser_registry
 

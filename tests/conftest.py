@@ -1,8 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.composition.resources import InfrastructureResources
 from app.core.config import Settings
-from app.infrastructure import InfrastructureResources
 from app.main import create_app
 from tests.fakes import FakeObjectStorage, FakeQdrantRepository
 

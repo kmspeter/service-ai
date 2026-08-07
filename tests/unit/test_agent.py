@@ -10,6 +10,8 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.tools import BaseTool
 from pydantic import Field, PrivateAttr
 
+from app.agent.service import AgentService
+from app.agent.tools.execution import create_tool_registry
 from app.core.exceptions import (
     AgentStepLimitError,
     AgentToolCallLimitError,
@@ -19,10 +21,8 @@ from app.models.agent import AgentExecutionState, AgentRunRequest
 from app.models.retrieval import RetrievalRequest, RetrievalResult
 from app.models.summary import DocumentSummaryResult, SummaryRequest, SummaryStrategy
 from app.models.tools import BackendDocument, ToolExecutionContext
-from app.services.agent import AgentService
-from app.services.retrieval import RetrievalService
-from app.services.summary import DocumentSummaryService
-from app.tools import create_tool_registry
+from app.services.retrieval.service import RetrievalService
+from app.services.summary.service import DocumentSummaryService
 
 
 class ScriptedToolCallingModel(BaseChatModel):

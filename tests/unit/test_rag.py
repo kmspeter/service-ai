@@ -1,6 +1,6 @@
 import asyncio
 
-from app.chunking import TokenCounter
+from app.chunking.recursive import TokenCounter
 from app.models.query_rewrite import (
     QueryRewriteRequest,
     QueryRewriteResult,
@@ -9,9 +9,9 @@ from app.models.query_rewrite import (
 from app.models.rag import RAGRequest
 from app.models.retrieval import RetrievalResult
 from app.prompts.rag import INSUFFICIENT_EVIDENCE_ANSWER
-from app.services.context import ContextBudgetManager
-from app.services.rag import RAGService
-from app.services.rag_context import RAGContextBuilder
+from app.services.context.budget import ContextBudgetManager
+from app.services.rag.context_builder import RAGContextBuilder
+from app.services.rag.service import RAGService
 from tests.fakes import RecordingLLM
 
 

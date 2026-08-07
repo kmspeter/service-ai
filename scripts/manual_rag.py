@@ -2,9 +2,9 @@ import asyncio
 import json
 from dataclasses import asdict
 
-from app.adapters.qdrant import QdrantAdapter
+from app.adapters.vector.qdrant import QdrantAdapter
+from app.composition.factories.rag import create_rag_service
 from app.core.config import Settings
-from app.factories.rag import create_rag_service
 from app.models.rag import RAGRequest
 
 # Manual configuration: edit these values and provider settings in .env, then run.

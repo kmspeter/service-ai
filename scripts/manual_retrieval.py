@@ -2,11 +2,11 @@ import asyncio
 import json
 from dataclasses import asdict
 
-from app.adapters.qdrant import QdrantAdapter
+from app.adapters.vector.qdrant import QdrantAdapter
+from app.composition.factories.embedding import create_embedding_service
 from app.core.config import Settings
-from app.factories.embedding import create_embedding_service
 from app.models.retrieval import RetrievalRequest
-from app.services.retrieval import RetrievalService
+from app.services.retrieval.service import RetrievalService
 
 # Manual configuration: edit these values and provider settings in .env, then run.
 REQUEST_ID = "manual-retrieval"

@@ -2,16 +2,16 @@ import asyncio
 
 import pytest
 
+from app.composition.factories.embedding import create_embedding_service
 from app.core.config import Settings
 from app.core.exceptions import (
     EmbeddingInputError,
     QdrantVectorDimensionMismatchError,
     UnknownEmbeddingModelError,
 )
-from app.factories.embedding import create_embedding_service
 from app.ports.qdrant import CollectionInfo, VectorDistance
+from app.services.documents.collection import ensure_vector_collection
 from app.services.embedding import EmbeddingService
-from app.services.vector_collection import ensure_vector_collection
 from tests.fakes import RecordingEmbeddingProvider
 
 

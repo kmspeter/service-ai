@@ -5,7 +5,16 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from app.adapters.backend import BackendDocumentsHttpClient
+from app.adapters.backend.http import BackendDocumentsHttpClient
+from app.agent.tools.execution import create_tool_registry
+from app.agent.tools.schemas import (
+    ListDocumentsInput,
+    ListDocumentsOutput,
+    SearchDocumentsInput,
+    SearchDocumentsOutput,
+    SummarizeDocumentInput,
+    SummarizeDocumentOutput,
+)
 from app.core.exceptions import (
     ExternalServiceError,
     ExternalServiceTimeoutError,
@@ -18,15 +27,6 @@ from app.models.summary import (
     SummaryStrategy,
 )
 from app.models.tools import BackendDocument, ToolExecutionContext
-from app.tools import create_tool_registry
-from app.tools.schemas import (
-    ListDocumentsInput,
-    ListDocumentsOutput,
-    SearchDocumentsInput,
-    SearchDocumentsOutput,
-    SummarizeDocumentInput,
-    SummarizeDocumentOutput,
-)
 
 
 class RecordingRetrieval:

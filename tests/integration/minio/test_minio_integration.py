@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.adapters.minio import MinIOStorageAdapter
+from app.adapters.storage.minio import MinIOStorageAdapter
 from app.core.exceptions import (
     ExternalServiceAuthenticationError,
     ResourceNotFoundError,

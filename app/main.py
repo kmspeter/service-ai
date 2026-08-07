@@ -3,13 +3,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.error_handlers import register_exception_handlers
 from app.api.router import api_router
-from app.composition import create_application_container
+from app.composition.container import create_application_container
+from app.composition.resources import InfrastructureResources
 from app.core.config import Settings, get_settings
-from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.request_context import RequestContextMiddleware
-from app.infrastructure import InfrastructureResources
 from app.ports.documents import DocumentIngestionPort, DocumentManagementPort
 
 

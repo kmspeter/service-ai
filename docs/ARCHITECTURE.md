@@ -142,83 +142,63 @@ Phase 15까지의 실제 구조다. Phase 16 이후 디렉터리는 해당 Phase
 ```text
 app/
 ├─ main.py
-├─ composition.py
-├─ infrastructure.py
 │
 ├─ api/
-│  ├─ health.py
+│  ├─ dependencies.py             # FastAPI에서 Container의 Service 조회
+│  ├─ error_handlers.py           # Application Error의 HTTP 매핑
 │  ├─ documents.py
+│  ├─ health.py
+│  ├─ schemas/
+│  │  ├─ documents.py
+│  │  └─ health.py
 │  └─ router.py
 │
-├─ core/
-│  ├─ config.py
-│  ├─ logging.py
-│  ├─ exceptions.py
-│  └─ request_context.py
-│
-├─ schemas/
-│  ├─ documents.py
-│  └─ health.py
-│
-├─ models/
-│  ├─ document.py
-│  ├─ ingestion.py
-│  ├─ embedding.py
-│  ├─ llm.py
-│  ├─ retrieval.py
-│  ├─ rag.py
-│  ├─ summary.py
-│  ├─ query_rewrite.py
-│  ├─ context.py
-│  ├─ tools.py
-│  └─ agent.py
+├─ agent/                         # 기존 Service를 사용하는 상위 오케스트레이션
+│  ├─ service.py                  # bounded LangChain Tool Calling Loop
+│  └─ tools/
+│     ├─ contracts.py             # 명시적 Tool 계약과 LangChain 변환
+│     ├─ execution.py             # Context-bound 기존 Service/Backend 호출
+│     └─ schemas.py               # LLM-visible Input과 구조화 Output
 │
 ├─ services/
-│  ├─ ingestion.py
-│  ├─ ingestion_preparation.py
-│  ├─ ingestion_components.py
-│  ├─ document_management.py
-│  ├─ vector_collection.py
-│  ├─ retrieval.py
-│  ├─ rag.py
-│  ├─ summary.py
-│  ├─ query_rewrite.py
-│  ├─ conversation_compaction.py
-│  ├─ context.py
-│  ├─ citations.py
-│  └─ agent.py
+│  ├─ documents/                 # Ingestion/상태/삭제/Collection 정책
+│  ├─ retrieval/                 # Dense Retrieval과 Query Rewrite
+│  ├─ rag/                       # RAG/Context/Citation
+│  ├─ summary/                   # Summary 진입점과 실행 전략
+│  ├─ context/                   # Token Budget과 대화 압축
+│  ├─ embedding.py
+│  └─ llm.py
 │
-├─ parsers/
-│  ├─ base.py
-│  ├─ registry.py
-│  ├─ pdf.py
-│  ├─ text.py
-│  └─ markdown.py
-│
-├─ chunking/
-│  └─ recursive.py
-│
-├─ tools/
-│  ├─ contracts.py              # 명시적 계약과 LangChain StructuredTool 변환
-│  ├─ execution.py              # 검증 Context에 바인딩된 세 실행 함수
-│  └─ schemas.py                # LLM-visible Input과 구조화 Output
-│
-├─ prompts/
-│  └─ agent.py                  # No Tool/세 Tool 선택과 응답 근거 규칙
-│
-├─ ports/                        # Protocol 중심의 외부/Application 경계
-│  └─ agent.py                  # 향후 실시간 실행 상태 Observer 경계
 ├─ adapters/
-│  └─ agent_model.py            # LangChain OpenAI/Ollama/Gemini Tool Calling Model
-└─ factories/
-   └─ agent.py                  # 설정/Context-bound Tool/Model Agent 조립
+│  ├─ agent/                     # LangChain Provider Chat Model
+│  ├─ backend/                   # Backend Internal HTTP Client
+│  ├─ embedding/                 # OpenAI-compatible/Hugging Face
+│  ├─ llm/                       # OpenAI/Ollama/Gemini
+│  ├─ storage/                   # MinIO
+│  └─ vector/                    # Qdrant
+│
+├─ composition/
+│  ├─ container.py               # Service/Resource 소유권과 lifecycle
+│  ├─ resources.py               # Qdrant/MinIO Resource 생성과 종료
+│  └─ factories/                 # 설정과 정확한 Port 기반 Service 조립
+│
+├─ core/                         # 설정/오류/Logging/Request Context
+├─ models/                       # Provider 중립 내부 모델
+├─ ports/                        # 외부/Application Protocol
+├─ parsers/                      # PDF/TXT/MD Parser와 Registry
+├─ chunking/                     # Token 측정과 Recursive Chunking
+└─ prompts/                      # Agent/RAG/Summary/Rewrite/Context Prompt
 ```
 
-`ApplicationContainer`는 현재 Service와 Infrastructure Resource를 조립하고, 자신이 생성한 객체만
-lifespan 종료 시 닫는다. 테스트나 수동 실행에서 주입한 객체는 호출자가 소유한다. Phase 14 Tool은
-기존 Service/Backend Client를 주입받고, Phase 15 Agent는 요청별 `ToolExecutionContext`에 바인딩된
-Tool Registry와 설정된 LangChain Chat Model을 Factory에서 조립한다. Phase 18 WebSocket Service도
-같은 조립 경계에 추가하고 `main.py`나 API 모듈에서 직접 Provider를 생성하지 않는다.
+`ApplicationContainer`는 Service와 Infrastructure Resource를 조립하고, 자신이 생성한 객체만 lifespan
+종료 시 닫는다. 테스트나 수동 실행에서 주입한 객체는 호출자가 소유한다. Factory는 전체 Resource
+묶음이 아니라 실제 필요한 `QdrantRepository`, `ObjectStorage` 같은 정확한 Port를 입력으로 받는다.
+
+Agent는 Retrieval/Summary Service보다 상위 오케스트레이션이므로 `services/`와 분리한다. Phase 14 Tool은
+`agent/tools/`에서 기존 Service/Backend Client를 호출하고, Phase 15 Agent는 요청별
+`ToolExecutionContext`에 바인딩된 Tool Registry와 설정된 LangChain Chat Model을 조립한다. 이 방향으로
+`services → agent/tools → services` 패키지 순환을 만들지 않는다. Phase 18 WebSocket Service도 같은
+Composition 경계에 추가하고 `main.py`나 API 모듈에서 직접 Provider를 생성하지 않는다.
 
 ---
 

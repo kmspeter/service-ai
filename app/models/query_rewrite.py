@@ -4,6 +4,8 @@ from typing import Literal
 
 from app.models.llm import LLMResult
 
+type ConversationRole = Literal["user", "assistant"]
+
 
 class QueryRewriteStatus(StrEnum):
     SKIPPED_NO_CONTEXT = "skipped_no_context"
@@ -16,7 +18,7 @@ class QueryRewriteStatus(StrEnum):
 class ConversationMessage:
     """One backend-provided recent message used only as rewrite context."""
 
-    role: Literal["user", "assistant"]
+    role: ConversationRole
     content: str
 
 

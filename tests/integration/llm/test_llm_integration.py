@@ -3,8 +3,8 @@ import os
 
 import pytest
 
+from app.composition.factories.llm import create_llm_service
 from app.core.config import Settings
-from app.factories.llm import create_llm_service
 from app.models.llm import LLMRequest
 
 pytestmark = pytest.mark.llm

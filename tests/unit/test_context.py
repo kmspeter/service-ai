@@ -2,12 +2,12 @@ import asyncio
 
 import pytest
 
-from app.chunking import TokenCounter
+from app.chunking.recursive import TokenCounter
 from app.core.exceptions import ContextBudgetError, LLMConnectionError
 from app.models.query_rewrite import ConversationMessage
 from app.models.retrieval import RetrievalResult
-from app.services.context import ContextBudgetManager
-from app.services.rag_context import RAGContextBuilder
+from app.services.context.budget import ContextBudgetManager
+from app.services.rag.context_builder import RAGContextBuilder
 from tests.fakes import RecordingLLM
 
 

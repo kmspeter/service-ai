@@ -2,13 +2,13 @@ from pathlib import Path
 
 import pytest
 
+import app.parsers.pdf as pdf_module
 from app.core.exceptions import (
     CorruptedPdfError,
     EncryptedPdfError,
     PdfParsingError,
 )
 from app.models.document import ParserInput
-from app.parsers import pdf as pdf_module
 from app.parsers.pdf import PdfParser
 
 FIXTURES = Path(__file__).parents[2] / "fixtures" / "documents"

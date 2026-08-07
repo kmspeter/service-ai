@@ -5,13 +5,13 @@ from uuid import uuid4
 import pytest
 from qdrant_client import models
 
-from app.adapters.qdrant import QdrantAdapter
+from app.adapters.vector.qdrant import QdrantAdapter
 from app.core.exceptions import (
     ExternalServiceConnectionError,
     QdrantVectorDimensionMismatchError,
 )
+from app.services.documents.collection import ensure_vector_collection
 from app.services.embedding import EmbeddingService
-from app.services.vector_collection import ensure_vector_collection
 
 pytestmark = [
     pytest.mark.infrastructure,

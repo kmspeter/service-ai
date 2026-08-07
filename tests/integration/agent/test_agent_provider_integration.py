@@ -4,16 +4,16 @@ from typing import cast
 
 import pytest
 
-from app.adapters.agent_model import create_agent_chat_model
+from app.adapters.agent.langchain_models import create_agent_chat_model
+from app.agent.service import AgentService
+from app.agent.tools.execution import create_tool_registry
 from app.core.config import Settings
 from app.models.agent import AgentRunRequest, AgentRunResult
 from app.models.retrieval import RetrievalRequest, RetrievalResult
 from app.models.summary import DocumentSummaryResult, SummaryRequest, SummaryStrategy
 from app.models.tools import BackendDocument, ToolExecutionContext
-from app.services.agent import AgentService
-from app.services.retrieval import RetrievalService
-from app.services.summary import DocumentSummaryService
-from app.tools import create_tool_registry
+from app.services.retrieval.service import RetrievalService
+from app.services.summary.service import DocumentSummaryService
 
 pytestmark = [
     pytest.mark.llm,

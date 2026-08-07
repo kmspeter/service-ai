@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from app.chunking import RecursiveDocumentChunker, TokenCounter
+from app.chunking.recursive import RecursiveDocumentChunker, TokenCounter
 from app.core.config import Settings
 from app.core.exceptions import (
     EmbeddingProviderServerError,
@@ -17,8 +17,8 @@ from app.models.ingestion import (
 )
 from app.parsers.registry import create_default_parser_registry
 from app.ports.qdrant import CollectionInfo, VectorDistance, VectorPoint
+from app.services.documents.ingestion import DocumentIngestionService
 from app.services.embedding import EmbeddingService
-from app.services.ingestion import DocumentIngestionService
 from tests.fakes import RecordingEmbeddingProvider
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "documents"

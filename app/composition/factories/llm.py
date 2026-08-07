@@ -1,0 +1,50 @@
+"""Construct LLM services and their selected provider adapters."""
+
+from app.adapters.llm.gemini import GeminiLLMAdapter
+from app.adapters.llm.ollama import OllamaLLMAdapter
+from app.adapters.llm.openai import OpenAILLMAdapter
+from app.core.config import Settings
+from app.core.exceptions import UnknownLLMProviderError
+from app.services.llm import LLMService
+
+
+def create_llm_service(settings: Settings) -> LLMService:
+    """Construct the configured provider without exposing its SDK to callers."""
+    settings.validate_llm_settings()
+    assert settings.llm_provider is not None
+    assert settings.llm_model is not None
+    api_key = settings.selected_llm_api_key()
+    assert api_key is not None
+
+    provider = settings.llm_provider.strip().lower()
+    if provider == "openai":
+        return LLMService(
+            OpenAILLMAdapter(
+                api_key=api_key.get_secret_value(),
+                model=settings.llm_model,
+                timeout_seconds=settings.llm_timeout_seconds,
+                max_output_tokens=settings.llm_max_output_tokens,
+                temperature=settings.llm_temperature,
+            )
+        )
+    if provider == "ollama":
+        return LLMService(
+            OllamaLLMAdapter(
+                api_key=api_key.get_secret_value(),
+                model=settings.llm_model,
+                timeout_seconds=settings.llm_timeout_seconds,
+                max_output_tokens=settings.llm_max_output_tokens,
+                temperature=settings.llm_temperature,
+            )
+        )
+    if provider == "gemini":
+        return LLMService(
+            GeminiLLMAdapter(
+                api_key=api_key.get_secret_value(),
+                model=settings.llm_model,
+                timeout_seconds=settings.llm_timeout_seconds,
+                max_output_tokens=settings.llm_max_output_tokens,
+                temperature=settings.llm_temperature,
+            )
+        )
+    raise UnknownLLMProviderError(provider)
